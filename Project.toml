@@ -1,0 +1,18 @@
+name = "JuliaPerformanceTest"
+uuid = "8a229381-d7eb-4865-a507-cf9af2c5cd1e"
+authors = ["João Martins Filho <joaomfilho1995@gmail.com>"]
+version = "0.1.0"
+
+[deps]
+HTTP = "cd3eb016-35fb-5094-929b-558a96fad6f3"
+JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
+Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
+Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[compat]
+HTTP = "1.10.10"
+JSON = "0.21.4"
+Plots = "1.40.9"
+Statistics = "1.11.1"
+Test = "1.11.0"
