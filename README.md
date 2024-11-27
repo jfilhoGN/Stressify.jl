@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="./img/logo.jpg" alt="Julia Performance Testing Logo" width="200px">
+  <img src="./img/logo.jpg" alt="Julia Performance Testing Logo" width="300px">
 </div>
 
 # Julia Performance Test
