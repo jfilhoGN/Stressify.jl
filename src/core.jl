@@ -26,64 +26,68 @@ function perform_request(endpoint::String, method::Function; payload=nothing, he
 end
 
 """
-    run_test(endpoint::String, method::Function=HTTP.get; payload=nothing, headers=Dict(), iterations::Int=10)
+    run_test(
+        endpoint::String, 
+        methods::Union{Function, Vector{Function}}=HTTP.get; 
+        payload=nothing, 
+        headers=Dict(), 
+        iterations::Union{Int, Nothing}=nothing, 
+        duration::Union{Float64, Nothing}=nothing
+    )
 
-Executa testes de performance em um endpoint utilizando o método HTTP especificado.
-- `endpoint`: URL do endpoint.
-- `method`: Função do método HTTP (e.g., HTTP.get, HTTP.post).
-- `payload`: Dados para requisições que suportam corpo (e.g., POST, PUT, PATCH).
-- `headers`: Cabeçalhos HTTP.
-- `iterations`: Número de requisições a serem realizadas.
+Executa testes de performance em um endpoint utilizando um ou mais métodos HTTP especificados. 
+
+### Parâmetros
+- `endpoint::String`: URL do endpoint que será testado.
+- `methods::Union{Function, Vector{Function}}`: Um método HTTP (e.g., `HTTP.get`) ou uma lista de métodos (e.g., `[HTTP.get, HTTP.post]`) a serem alternados durante o teste.
+- `payload=nothing`: Dados para requisições que suportam corpo (e.g., POST, PUT, PATCH). Ignorado para métodos como GET e DELETE.
+- `headers=Dict()`: Cabeçalhos HTTP a serem enviados com cada requisição.
+- `iterations::Union{Int, Nothing}=nothing`: Número total de requisições a serem realizadas. O teste será encerrado após atingir esse número, se especificado.
+- `duration::Union{Float64, Nothing}=nothing`: Tempo máximo (em segundos) para a execução do teste. O teste será encerrado após atingir esse tempo, se especificado.
 
 Retorna estatísticas sobre os tempos de resposta.
 """
-function run_test(
-    endpoint::String, 
-    methods::Union{Function, Vector{Function}}; 
-    payload=nothing, 
-    headers=Dict(), 
-    iterations::Int=10
-)
-    if iterations <= 0
-        error("O número de iterações deve ser um inteiro positivo.")
+function run_test(endpoint::String, methods::Union{Function, Vector{Function}}=HTTP.get; 
+                  payload=nothing, headers=Dict(), 
+                  iterations::Union{Int, Nothing}=nothing, 
+                  duration::Union{Float64, Nothing}=nothing)
+
+    if iterations === nothing && duration === nothing
+        error("Você deve especificar 'iterations' ou 'duration'.")
     end
 
-    # Normalizar `methods` para um vetor
-    methods = methods isa Function ? [methods] : methods
-
-    # Validação dos métodos
-    for method in methods
-        if method ∉ [HTTP.get, HTTP.post, HTTP.put, HTTP.delete, HTTP.patch]
-            error("Método HTTP não suportado. Use: GET, POST, PUT, DELETE ou PATCH.")
-        end
-    end
-
-    num_threads = min(nthreads(), iterations)
-    iterations_per_thread = floor(Int, iterations / num_threads)
-    remaining_iterations = iterations % num_threads
-
+    num_threads = nthreads()
     local_results = [Float64[] for _ in 1:num_threads]
-    local_errors = zeros(Int, num_threads)
+    total_errors = Atomic{Int}(0)
+
+    start_time = time()
+    stop_test = () -> duration !== nothing && (time() - start_time) >= duration
 
     tasks = []
     for t in 1:num_threads
         push!(tasks, Threads.@spawn begin
             thread_id = Threads.threadid()
             println("Thread $thread_id inicializada.")
+            method_idx = 1
 
-            total_iterations = iterations_per_thread + (t <= remaining_iterations ? 1 : 0)
+            i = 0
+            while (iterations === nothing || i < iterations) && !stop_test()
+                global_iter = iterations === nothing ? i + 1 : (t - 1) * div(iterations, num_threads) + i + 1
+                current_method = methods[method_idx]
 
-            for i in 1:total_iterations
-                global_iter = (t - 1) * iterations_per_thread + i
-                method = methods[mod(global_iter - 1, length(methods)) + 1]  # Seleciona o método com base na iteração
                 try
-                    elapsed_time = @elapsed perform_request(endpoint, method; payload=payload, headers=headers)
+                    elapsed_time = @elapsed begin
+                        perform_request(endpoint, current_method; payload=payload, headers=headers)
+                    end
                     push!(local_results[t], elapsed_time)
-                    println("Requisição $global_iter finalizada no thread $thread_id com método $(string(method)) (Tempo: $elapsed_time segundos)")
+                    println("Requisição $global_iter finalizada no thread $thread_id (Tempo: $elapsed_time segundos)")
                 catch e
-                    local_errors[t] += 1
-                    println("Erro na requisição $global_iter no thread $thread_id com método $(string(method)): ", e)
+                    atomic_add!(total_errors, 1)
+                    println("Erro na requisição $global_iter no thread $thread_id: ", e)
                 end
+
+                method_idx = (method_idx % length(methods)) + 1
+                i += 1
             end
         end)
     end
@@ -91,24 +95,17 @@ function run_test(
     foreach(wait, tasks)
 
     all_times = vcat(local_results...)
-    total_errors = sum(local_errors)
-
-    println("Depuração - Tempos por thread:")
-    for i in 1:num_threads
-        println("Thread $i: $(local_results[i])")
-    end
-
     return Dict(
         "endpoint" => endpoint,
-        "methods" => [string(m) for m in methods],
-        "iterations" => iterations,
+        "methods" => methods,
+        "iterations" => length(all_times),
+        "errors" => total_errors[],
         "min_time" => isempty(all_times) ? NaN : minimum(all_times),
         "max_time" => isempty(all_times) ? NaN : maximum(all_times),
         "mean_time" => isempty(all_times) ? NaN : mean(all_times),
         "median_time" => isempty(all_times) ? NaN : median(all_times),
         "std_time" => isempty(all_times) ? NaN : std(all_times),
-        "all_times" => all_times,
-        "errors" => total_errors
+        "all_times" => all_times
     )
 end
 
