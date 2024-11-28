@@ -103,26 +103,98 @@ function perform_request(request::NamedTuple)
 end
 
 """
-    compute_statistics(all_times::Vector{Float64}, total_errors::Atomic{Int})
+    compute_statistics(all_times::Vector{Float64}, total_errors::Atomic{Int}, total_requests::Int, total_duration::Float64)
 
 Calcula e retorna as estatísticas de desempenho a partir do vetor de tempos de resposta.
 
 - `all_times`: Vetor contendo todos os tempos de resposta.
 - `total_errors`: Contador de erros no teste.
+- `total_requests`: Número total de requisições realizadas.
+- `total_duration`: Duração total do teste em segundos.
 
-Retorna um `Dict` com as estatísticas de desempenho.
+Retorna um `Dict` com as estatísticas de desempenho, incluindo P90, P95, P99, SuccessRate, ErrorRate, RPS e TPS.
 """
-function compute_statistics(all_times::Vector{Float64}, total_errors::Atomic{Int})
-    return Dict(
+function compute_statistics(all_times::Vector{Float64}, total_errors::Atomic{Int}, total_requests::Int, total_duration::Float64)
+    p90 = isempty(all_times) ? NaN : percentile(all_times, 90)
+    p95 = isempty(all_times) ? NaN : percentile(all_times, 95)
+    p99 = isempty(all_times) ? NaN : percentile(all_times, 99)
+    success_rate = total_requests == 0 ? NaN : (1 - total_errors[] / total_requests) * 100
+    error_rate = total_requests == 0 ? NaN : (total_errors[] / total_requests) * 100
+
+    rps = total_duration == 0.0 ? NaN : total_requests / total_duration
+    tps = total_duration == 0.0 ? NaN : (total_requests - total_errors[]) / total_duration
+
+    return format_results(Dict(
         "iterations" => length(all_times),
         "errors" => total_errors[],
+        "success_rate" => success_rate,  # Taxa de sucesso em porcentagem
+        "error_rate" => error_rate,      # Taxa de erro em porcentagem
         "min_time" => isempty(all_times) ? NaN : minimum(all_times),
         "max_time" => isempty(all_times) ? NaN : maximum(all_times),
         "mean_time" => isempty(all_times) ? NaN : mean(all_times),
         "median_time" => isempty(all_times) ? NaN : median(all_times),
         "std_time" => isempty(all_times) ? NaN : std(all_times),
+        "p90_time" => p90,
+        "p95_time" => p95,
+        "p99_time" => p99,
+        "rps" => rps,  # Requests Per Second
+        "tps" => tps,  # Transactions Per Second
         "all_times" => all_times
-    )
+    ))
+end
+
+"""
+    percentile(data::Vector{Float64}, p::Real)
+
+Calcula o valor do percentil `p` em um vetor de dados.
+
+- `data`: Vetor de dados.
+- `p`: Percentil (entre 0 e 100).
+
+Retorna o valor do percentil ou `NaN` se o vetor estiver vazio.
+"""
+function percentile(data::Vector{Float64}, p::Real)
+    if isempty(data)
+        return NaN
+    end
+    sorted_data = sort(data)
+    rank = ceil(Int, p / 100 * length(sorted_data))
+    return sorted_data[min(rank, length(sorted_data))]
+end
+
+"""
+    format_results(results::Dict{String, Any})
+
+Formata o dicionário de resultados de métricas de desempenho em um resumo legível.
+
+- `results`: Dicionário retornado pela função `run_test`.
+
+Retorna uma string formatada com as principais métricas.
+"""
+function format_results(results::Dict{String, Any})
+    return """
+    ================== Stressify ==================
+    Iterações Totais       : $(results["iterations"])
+    Taxa de Sucesso (%)    : $(round(results["success_rate"], digits=2))
+    Taxa de Erros (%)      : $(round(results["error_rate"], digits=2))
+    Requisições por Segundo: $(round(results["rps"], digits=2))
+    Transações por Segundo : $(round(results["tps"], digits=2))
+    Número de Erros        : $(results["errors"])
+
+    ---------- Métricas de Tempo (s) ----------
+    Tempo Mínimo           : $(round(results["min_time"], digits=4))
+    Tempo Máximo           : $(round(results["max_time"], digits=4))
+    Tempo Médio            : $(round(results["mean_time"], digits=4))
+    Mediana                : $(round(results["median_time"], digits=4))
+    P90                    : $(round(results["p90_time"], digits=4))
+    P95                    : $(round(results["p95_time"], digits=4))
+    P99                    : $(round(results["p99_time"], digits=4))
+    Desvio Padrão          : $(round(results["std_time"], digits=4))
+
+    ---------- Detalhamento de Tempos ----------
+    Todos os Tempos (s)    : $(join(round.(results["all_times"], digits=4), ", "))
+    ==========================================================
+    """
 end
 
 """
@@ -150,7 +222,7 @@ function run_test(requests::Vararg{NamedTuple})
 
     tasks = []
     for t in 1:num_threads
-        thread_id = t  # Identificador de thread controlado manualmente
+        thread_id = t  
         push!(tasks, Threads.@spawn begin
             println("Thread $thread_id inicializada.")
             request_idx = 1
@@ -166,7 +238,6 @@ function run_test(requests::Vararg{NamedTuple})
                     end
                     push!(local_results[thread_id], elapsed_time)
                     
-                    # Captura o método HTTP como string
                     method_name = string(current_request.method) |> x -> split(x, ".")[end]
                     println("Requisição $global_iter (Método: $method_name) finalizada no thread $thread_id (Tempo: $elapsed_time segundos)")
                 catch e
@@ -183,7 +254,11 @@ function run_test(requests::Vararg{NamedTuple})
     foreach(wait, tasks)
 
     all_times = vcat(local_results...)
-    return compute_statistics(all_times, total_errors)
+    total_requests = length(all_times) + total_errors[]
+
+    end_time = time()
+    total_duration = end_time - start_time
+    results = compute_statistics(all_times, total_errors, total_requests, total_duration)
 end
 
 export options, http_get, http_post, http_put, http_patch, http_delete, run_test, compute_statistics
