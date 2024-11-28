@@ -1,4 +1,4 @@
-module JuliaPerformanceTest
+module Stressify
 
 # Inclui arquivos do módulo
 include("core.jl")

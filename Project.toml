@@ -1,4 +1,4 @@
-name = "JuliaPerformanceTest"
+name = "Stressify"
 uuid = "8a229381-d7eb-4865-a507-cf9af2c5cd1e"
 authors = ["João Martins Filho <joaomfilho1995@gmail.com>"]
 version = "0.1.0"
