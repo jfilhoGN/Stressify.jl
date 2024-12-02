@@ -12,5 +12,3 @@ Stressify.options(
 results = Stressify.run_test(
     Stressify.http_get("https://httpbin.org/get"),
 )
-
-println("Resultados: ", results)

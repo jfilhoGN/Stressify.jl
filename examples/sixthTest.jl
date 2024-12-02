@@ -15,5 +15,3 @@ Stressify.options(
 results = Stressify.run_test(
     Stressify.http_post("https://httpbin.org/post"; payload="{\"nome\": \"$object['nome']\"}", headers=Dict("Content-Type" => "application/json")),
 )
-
-println("Resultados: ", results)

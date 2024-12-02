@@ -1,8 +1,7 @@
 using Pkg
-Pkg.activate(".")  # Ative o ambiente local
+Pkg.activate(".") 
 using Stressify
 
-# Configurar as opções globais
 Stressify.options(
     vus = 5,
     iterations = 10,
@@ -17,5 +16,3 @@ results = Stressify.run_test(
     Stressify.http_patch("https://httpbin.org/patch"; payload="{\"patch\": \"data\"}", headers=Dict("Content-Type" => "application/json")),
     Stressify.http_delete("https://httpbin.org/delete")
 )
-
-println("Resultados: ", results)
