@@ -14,6 +14,5 @@ Stressify.options(
 results = Stressify.run_test(
     Stressify.http_get("https://httpbin.org/get"),
 )
-println("Resultados: ", results)
-Stressify.generate_report(results)
-Stressify.save_results_to_json(results, "report.json")
+Stressify.generate_report(results, "./examples/reports/grafico.png")
+Stressify.save_results_to_json(results, "./examples/reports/report.json")

@@ -7,6 +7,15 @@ using Base.Threads
 # Armazena as opções globais
 const GLOBAL_OPTIONS = Dict{Symbol, Any}()
 
+struct Check
+    description::String
+    condition::Function
+end
+
+# Registra resultados globais dos checks
+const CHECK_RESULTS = Ref(Vector{String}())
+const CHECK_LOCK = ReentrantLock()
+
 """
     options(; vus::Int=1, iterations::Union{Int, Nothing}=nothing, duration::Union{Float64, Nothing}=nothing)
 
@@ -23,65 +32,50 @@ function options(; vus::Int=1, iterations::Union{Int, Nothing}=nothing, duration
 end
 
 """
-    http_get(endpoint::String)
+    check(response, method::String, checks::Vector{Check})
 
-Cria uma requisição GET para o endpoint fornecido.
+Aplica uma lista de checks a uma resposta HTTP, incluindo o método HTTP.
 
-- `endpoint`: URL do endpoint.
+- `response`: Objeto de resposta HTTP.
+- `method`: Método HTTP usado na requisição (GET, POST, etc.).
+- `checks`: Vetor de objetos `Check` com condições a serem avaliadas.
 """
-function http_get(endpoint::String)
-    return (method=HTTP.get, url=endpoint, payload=nothing, headers=Dict())
+function check(response, method::String, checks::Vector{Check})
+    for chk in checks
+        try
+            if chk.condition(response)
+                push!(CHECK_RESULTS[], "✔️ $(method) - $(chk.description) - Success")
+                println("✔️ $(method) - $(chk.description) - Success")
+            else
+                push!(CHECK_RESULTS[], "❌ $(method) - $(chk.description) - Failed")
+                println("❌ $(method) - $(chk.description) - Failed")
+            end
+        catch e
+            push!(CHECK_RESULTS[], "⚠️ $(method) - $(chk.description) - Error: $e")
+            println("⚠️ $(method) - $(chk.description) - Error: $e")
+        end
+    end
 end
 
-"""
-    http_post(endpoint::String; payload=nothing, headers=Dict())
-
-Cria uma requisição POST para o endpoint fornecido.
-
-- `endpoint`: URL do endpoint.
-- `payload`: Dados do corpo da requisição.
-- `headers`: Cabeçalhos HTTP.
-"""
-function http_post(endpoint::String; payload=nothing, headers=Dict())
-    return (method=HTTP.post, url=endpoint, payload=payload, headers=headers)
+# Funções de criação de requisições HTTP
+function http_get(endpoint::String; checks=Vector{Check}())
+    return (method=HTTP.get, url=endpoint, payload=nothing, headers=Dict(), checks=checks)
 end
 
-"""
-    http_put(endpoint::String; payload=nothing, headers=Dict())
-
-Cria uma requisição PUT para o endpoint fornecido.
-
-- `endpoint`: URL do endpoint.
-- `payload`: Dados do corpo da requisição.
-- `headers`: Cabeçalhos HTTP.
-"""
-function http_put(endpoint::String; payload=nothing, headers=Dict())
-    return (method=HTTP.put, url=endpoint, payload=payload, headers=headers)
+function http_post(endpoint::String; payload=nothing, headers=Dict(), checks=Vector{Check}())
+    return (method=HTTP.post, url=endpoint, payload=payload, headers=headers, checks=checks)
 end
 
-"""
-    http_patch(endpoint::String; payload=nothing, headers=Dict())
-
-Cria uma requisição PATCH para o endpoint fornecido.
-
-- `endpoint`: URL do endpoint.
-- `payload`: Dados do corpo da requisição.
-- `headers`: Cabeçalhos HTTP.
-"""
-function http_patch(endpoint::String; payload=nothing, headers=Dict())
-    return (method=HTTP.patch, url=endpoint, payload=payload, headers=headers)
+function http_put(endpoint::String; payload=nothing, headers=Dict(), checks=Vector{Check}())
+    return (method=HTTP.put, url=endpoint, payload=payload, headers=headers, checks=checks)
 end
 
-"""
-    http_delete(endpoint::String; headers=Dict())
+function http_patch(endpoint::String; payload=nothing, headers=Dict(), checks=Vector{Check}())
+    return (method=HTTP.patch, url=endpoint, payload=payload, headers=headers, checks=checks)
+end
 
-Cria uma requisição DELETE para o endpoint fornecido.
-
-- `endpoint`: URL do endpoint.
-- `headers`: Cabeçalhos HTTP.
-"""
-function http_delete(endpoint::String; headers=Dict())
-    return (method=HTTP.delete, url=endpoint, payload=nothing, headers=headers)
+function http_delete(endpoint::String; headers=Dict(), checks=Vector{Check}())
+    return (method=HTTP.delete, url=endpoint, payload=nothing, headers=headers, checks=checks)
 end
 
 """
@@ -89,17 +83,26 @@ end
 
 Executa uma requisição HTTP com base em um `NamedTuple` que define o método, URL, payload e headers.
 
-- `request`: NamedTuple contendo `method`, `url`, `payload` e `headers`.
+- `request`: NamedTuple contendo `method`, `url`, `payload`, `headers` e `checks`.
 """
 function perform_request(request::NamedTuple)
-    method, url, payload, headers = request.method, request.url, request.payload, request.headers
-    if method in (HTTP.get, HTTP.delete)
-        return method(url, headers)
+    method, url, payload, headers, checks = 
+        request.method, request.url, request.payload, request.headers, request.checks
+
+    response = if method in (HTTP.get, HTTP.delete)
+        method(url, headers)
     elseif method in (HTTP.post, HTTP.put, HTTP.patch)
-        return method(url, headers; body=payload)
+        method(url, headers; body=payload)
     else
         error("Método HTTP não suportado. Use: GET, POST, PUT, DELETE ou PATCH.")
     end
+
+    # Processar checks, se existirem
+    if !isempty(checks)
+        check(response, string(method), checks)
+    end
+
+    return response
 end
 
 """
@@ -124,7 +127,7 @@ function compute_statistics(all_times::Vector{Float64}, total_errors::Atomic{Int
     rps = total_duration == 0.0 ? NaN : total_requests / total_duration
     tps = total_duration == 0.0 ? NaN : (total_requests - total_errors[]) / total_duration
 
-    return format_results(Dict(
+    return Dict(
         "iterations" => length(all_times),
         "errors" => total_errors[],
         "success_rate" => success_rate,  # Taxa de sucesso em porcentagem
@@ -139,9 +142,10 @@ function compute_statistics(all_times::Vector{Float64}, total_errors::Atomic{Int
         "p99_time" => p99,
         "rps" => rps,  # Requests Per Second
         "tps" => tps,  # Transactions Per Second
-        "all_times" => all_times
-    ))
+        "all_times" => all_times  # Adicionando a chave "all_times"
+    )
 end
+
 
 """
     percentile(data::Vector{Float64}, p::Real)
@@ -163,15 +167,15 @@ function percentile(data::Vector{Float64}, p::Real)
 end
 
 """
-    format_results(results::Dict{String, Any})
+    format_results(results::Dict{String, <:Any})
 
 Formata o dicionário de resultados de métricas de desempenho em um resumo legível.
 
-- `results`: Dicionário retornado pela função `run_test`.
+- `results`: Dicionário retornado pela função `compute_statistics`.
 
 Retorna uma string formatada com as principais métricas.
 """
-function format_results(results::Dict{String, Any})
+function format_results(results::Dict{String, <:Any})
     return """
     ================== Stressify ==================
     Iterações Totais       : $(results["iterations"])
@@ -197,12 +201,13 @@ function format_results(results::Dict{String, Any})
     """
 end
 
+
 """
     run_test(requests::Vararg{NamedTuple})
 
 Executa testes de performance com base nas requisições fornecidas.
 
-- `requests`: Um ou mais objetos retornados por `http_get`, `http_post`, `http_put`, `http_patch` ou `http_delete`.
+- `requests`: Um ou mais objetos retornados por `http_get`, `http_post`, etc.
 """
 function run_test(requests::Vararg{NamedTuple})
     vus = get(GLOBAL_OPTIONS, :vus, 1)
@@ -258,9 +263,14 @@ function run_test(requests::Vararg{NamedTuple})
 
     end_time = time()
     total_duration = end_time - start_time
+
     results = compute_statistics(all_times, total_errors, total_requests, total_duration)
+    println(format_results(results))
+    println("\n---------- Resultados dos Checks ----------")
+    println(join(CHECK_RESULTS[], "\n"))
+    return results
 end
 
-export options, http_get, http_post, http_put, http_patch, http_delete, run_test, compute_statistics
+export options, http_get, http_post, http_put, http_patch, http_delete, run_test, Check
 
 end
