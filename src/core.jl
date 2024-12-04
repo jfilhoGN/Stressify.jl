@@ -3,6 +3,7 @@ module Core
 using HTTP
 using Statistics
 using Base.Threads
+using Printf
 
 # Armazena as opções globais
 const GLOBAL_OPTIONS = Dict{Symbol, Any}()
@@ -125,11 +126,11 @@ Calcula e retorna as estatísticas de desempenho a partir do vetor de tempos de 
 Retorna um `Dict` com as estatísticas de desempenho, incluindo P90, P95, P99, SuccessRate, ErrorRate, RPS e TPS.
 """
 function compute_statistics(
-    all_times::Vector{Float64}, 
-    total_errors::Union{Int, Base.Threads.Atomic{Int}}, 
-    total_requests::Int, 
-    total_duration::Float64, 
-    vus::Int
+	all_times::Vector{Float64},
+	total_errors::Union{Int, Base.Threads.Atomic{Int}},
+	total_requests::Int,
+	total_duration::Float64,
+	vus::Int,
 )
 	p90 = isempty(all_times) ? NaN : percentile(all_times, 90)
 	p95 = isempty(all_times) ? NaN : percentile(all_times, 95)
@@ -153,7 +154,7 @@ function compute_statistics(
 		"p90_time" => p90,
 		"p95_time" => p95,
 		"p99_time" => p99,
-        "vus" => vus, 
+		"vus" => vus,
 		"rps" => rps,  # Requests Per Second
 		"tps" => tps,  # Transactions Per Second
 		"all_times" => all_times,  # Adicionando a chave "all_times"
@@ -189,30 +190,32 @@ Formata o dicionário de resultados de métricas de desempenho em um resumo leg�
 Retorna uma string formatada com as principais métricas.
 """
 function format_results(results::Dict{String, <:Any})
-	return """
-	================== Stressify ==================
-	Iterações Totais       : $(results["iterations"])
-	Taxa de Sucesso (%)    : $(round(results["success_rate"], digits=2))
-	Taxa de Erros (%)      : $(round(results["error_rate"], digits=2))
-	Requisições por Segundo: $(round(results["rps"], digits=2))
-	Transações por Segundo : $(round(results["tps"], digits=2))
-	Número de Erros        : $(results["errors"])
+    return """
+    ================== Stressify ==================
+        VUs                    : $(lpad(results["vus"], 10))
+        Iterações Totais       : $(lpad(results["iterations"], 10))
+        Taxa de Sucesso (%)    : $(lpad(round(results["success_rate"], digits=2), 10))
+        Taxa de Erros (%)      : $(lpad(round(results["error_rate"], digits=2), 10))
+        Requisições por Segundo: $(lpad(round(results["rps"], digits=2), 10))
+        Transações por Segundo : $(lpad(round(results["tps"], digits=2), 10))
+        Número de Erros        : $(lpad(results["errors"], 10))
 
-	---------- Métricas de Tempo (s) ----------
-	Tempo Mínimo           : $(round(results["min_time"], digits=4))
-	Tempo Máximo           : $(round(results["max_time"], digits=4))
-	Tempo Médio            : $(round(results["mean_time"], digits=4))
-	Mediana                : $(round(results["median_time"], digits=4))
-	P90                    : $(round(results["p90_time"], digits=4))
-	P95                    : $(round(results["p95_time"], digits=4))
-	P99                    : $(round(results["p99_time"], digits=4))
-	Desvio Padrão          : $(round(results["std_time"], digits=4))
+    ---------- Métricas de Tempo (s) ----------
+        Tempo Mínimo           : $(lpad(round(results["min_time"], digits=4), 10))
+        Tempo Máximo           : $(lpad(round(results["max_time"], digits=4), 10))
+        Tempo Médio            : $(lpad(round(results["mean_time"], digits=4), 10))
+        Mediana                : $(lpad(round(results["median_time"], digits=4), 10))
+        P90                    : $(lpad(round(results["p90_time"], digits=4), 10))
+        P95                    : $(lpad(round(results["p95_time"], digits=4), 10))
+        P99                    : $(lpad(round(results["p99_time"], digits=4), 10))
+        Desvio Padrão          : $(lpad(round(results["std_time"], digits=4), 10))
 
-	---------- Detalhamento de Tempos ----------
-	Todos os Tempos (s)    : $(join(round.(results["all_times"], digits=4), ", "))
-	==========================================================
-	"""
+    ---------- Detalhamento de Tempos ----------
+        Todos os Tempos (s)    : $(join(round.(results["all_times"], digits=4), ", "))
+    ==========================================================
+    """
 end
+
 
 """
 	run_test(requests::Vararg{NamedTuple})
@@ -231,103 +234,131 @@ function run_test(requests::Vararg{NamedTuple})
         error("Você deve especificar 'iterations' ou 'duration' nas opções globais.")
     end
 
-    local_results = [Float64[] for _ in 1:vus]
-    total_errors = Atomic{Int}(0)
     start_time = time()
-    tasks = []
+    total_errors = Atomic{Int}(0)
+    active_vus = Atomic{Int}(vus)
+    tasks = Task[]
+    
+    # Inicializa o vetor de resultados com o número máximo possível de VUs
+    local_results = [Float64[] for _ in 1:(max_vus === nothing ? vus : max_vus)]
 
     if format == "vus-ramping" && max_vus !== nothing && ramp_duration > 0.0 && duration !== nothing
-        # Lógica de ramping (não será usada no caso simples)
-        function ramp_vus()
+        # Calcula quantos VUs precisamos adicionar
+        vus_to_add = max_vus - vus
+        
+        # Calcula o intervalo entre adições de VUs para garantir distribuição uniforme
+        if vus_to_add > 0
+            interval = ramp_duration / vus_to_add
+        else
+            interval = ramp_duration
+        end
+        
+        # Task para gerenciar o ramp-up
+        ramp_task = @async begin
             current_vus = vus
-            ramp_interval = ramp_duration / (max_vus - vus)
-            while current_vus < max_vus && (time() - start_time) < ramp_duration
-                sleep(ramp_interval)
-                current_vus += 1
-                println("Ramp-up: Incrementando VUs para $current_vus")
-                push!(local_results, Float64[])
-
-                thread_id = current_vus
-                push!(tasks, Threads.@spawn begin
-                    println("Thread $thread_id inicializada.")
-                    request_idx = 1
-                    while (iterations === nothing || length(local_results[thread_id]) < iterations) &&
-                          (time() - start_time) < ramp_duration
-                        try
-                            elapsed_time = @elapsed begin
-                                perform_request(requests[request_idx])
-                            end
-                            push!(local_results[thread_id], elapsed_time)
-                        catch e
-                            atomic_add!(total_errors, 1)
-                        end
-                        request_idx = (request_idx % length(requests)) + 1
-                    end
-                end)
+            ramp_start = time()
+            
+            # Inicia as tasks para os VUs iniciais
+            for t in 1:vus
+                push!(tasks, spawn_vu_task(
+                    t,
+                    start_time,
+                    duration + ramp_duration,  # Duração total inclui ramping
+                    iterations,
+                    requests,
+                    local_results,
+                    total_errors
+                ))
             end
+            
+            # Adiciona novos VUs gradualmente durante o ramp_duration
+            for new_vu in (vus + 1):max_vus
+                sleep(interval)
+                current_vus = new_vu
+                atomic_add!(active_vus, 1)
+                println("Ramp-up: Incrementando VUs para $current_vus")
+
+                push!(tasks, spawn_vu_task(
+                    new_vu,
+                    start_time,
+                    duration + ramp_duration - (time() - start_time),  # Ajusta duração restante
+                    iterations,
+                    requests,
+                    local_results,
+                    total_errors
+                ))
+            end
+            
+            println("Ramp-up concluído. Total de VUs ativos: $(active_vus[])")
         end
 
-        Threads.@spawn ramp_vus()
-
-        while (time() - start_time) < (ramp_duration + duration)
-            # Executa durante o tempo total (ramp_duration + duration)
-            sleep(0.1)
+        # Aguarda o término do ramp-up
+        wait(ramp_task)
+        
+        # Aguarda o término da duração total
+        remaining_time = duration + ramp_duration - (time() - start_time)
+        if remaining_time > 0
+            sleep(remaining_time)
         end
     else
-        # Execução simples
+        # Execução padrão sem ramping
         for t in 1:vus
-            push!(tasks, Threads.@spawn begin
-                println("Thread $t inicializada.")
-                request_idx = 1
-                i = 0
-                while (iterations === nothing || i < iterations) &&
-                      (duration === nothing || (time() - start_time) < duration)
-                    try
-                        elapsed_time = @elapsed begin
-                            perform_request(requests[request_idx])
-                        end
-                        push!(local_results[t], elapsed_time)
-
-                        method_name = string(requests[request_idx].method) |> x -> split(x, ".")[end]
-                        println("Requisição (Método: $method_name) finalizada no thread $t (Tempo: $elapsed_time segundos)")
-                    catch e
-                        atomic_add!(total_errors, 1)
-                        println("Erro na requisição no thread $t: ", e)
-                    end
-                    request_idx = (request_idx % length(requests)) + 1
-                    i += 1
-                end
-            end)
+            push!(tasks, spawn_vu_task(
+                t,
+                start_time,
+                duration,
+                iterations,
+                requests,
+                local_results,
+                total_errors
+            ))
+        end
+        
+        if duration !== nothing
+            sleep(duration)
         end
     end
 
+    # Aguarda todas as tasks terminarem
     foreach(wait, tasks)
 
+    # Processa os resultados
     all_times = vcat(local_results...)
     total_requests = length(all_times) + total_errors[]
+    total_duration = time() - start_time
 
-    end_time = time()
-    total_duration = end_time - start_time
-
-    results = compute_statistics(all_times, total_errors, total_requests, total_duration, vus)
+    results = compute_statistics(all_times, total_errors, total_requests, total_duration, active_vus[])
     println(format_results(results))
     println("\n---------- Resultados dos Checks ----------")
     println(join(CHECK_RESULTS[], "\n"))
+    
     return results
 end
 
-
-function spawn_vu_task(vu_id, start_time, duration, requests, local_results, total_errors)
+function spawn_vu_task(vu_id, start_time, duration, iterations, requests, local_results, total_errors)
     return Threads.@spawn begin
         println("Thread $vu_id inicializada.")
         request_idx = 1
-        i = 0
-        while (time() - start_time) < duration
+        iteration_count = 0
+        
+        while true
+            current_time = time() - start_time
+            
+            # Verifica condições de parada
+            if iterations !== nothing && iteration_count >= iterations
+                break
+            end
+            
+            if duration !== nothing && current_time >= duration
+                break
+            end
+            
             try
                 elapsed_time = @elapsed begin
                     perform_request(requests[request_idx])
                 end
                 push!(local_results[vu_id], elapsed_time)
+                iteration_count += 1
 
                 method_name = string(requests[request_idx].method) |> x -> split(x, ".")[end]
                 println("Requisição (Método: $method_name) finalizada no thread $vu_id (Tempo: $elapsed_time segundos)")
@@ -337,8 +368,9 @@ function spawn_vu_task(vu_id, start_time, duration, requests, local_results, tot
             end
 
             request_idx = (request_idx % length(requests)) + 1
-            i += 1
         end
+        
+        println("Thread $vu_id finalizada após $iteration_count iterações.")
     end
 end
 
