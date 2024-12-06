@@ -1,41 +1,31 @@
 name: Julia Unit Tests
 
 on:
+  push:
+    branches:
+      - main
   pull_request:
-    branches: [ main, master ]  
+    branches:
+      - main
 
 jobs:
   test:
-    name: Test on ${{ matrix.os }} with Julia ${{ matrix.julia-version }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        julia-version: ['1.10']  
-        os: [ubuntu-latest]  
+    runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-      - name: Set up Julia
+      - name: Install Julia
         uses: julia-actions/setup-julia@v1
         with:
-          version: ${{ matrix.julia-version }}
+          version: '1.10'
 
-      - name: Cache Julia artifacts
-        uses: actions/cache@v2
-        env:
-          cache-name: cache-artifacts
-        with:
-          path: ~/.julia/artifacts
-          key: ${{ runner.os }}-${{ env.cache-name }}-${{ hashFiles('**/Project.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-${{ env.cache-name }}-
-
-      - name: Instantiate environment
-        run: julia --project -e 'using Pkg; Pkg.instantiate()'
-
-      - name: Build package
-        run: julia --project -e 'using Pkg; Pkg.build()'
+      - name: Setup dependencies
+        run: |
+          julia --project=. -e 'using Pkg; Pkg.instantiate()'
 
       - name: Run tests
-        run: julia --project -e 'using Pkg; Pkg.test()'
+        run: |
+          julia --project=. -e 'using Pkg; Pkg.test()'
+
