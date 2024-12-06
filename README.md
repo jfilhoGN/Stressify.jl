@@ -113,8 +113,4 @@ This project is licensed under the MIT License.
 
 ---
 
-## ❤️ Acknowledgments
-
-Thanks to the Julia community and inspiration from tools like K6.
-
 Happy Testing! 🚀
