@@ -8,10 +8,10 @@ using Plots
 Gera um gráfico de tempos de resposta.
 """
 function generate_report(results::Dict, file_name::String="grafico.png")
-    times = results["all_times"]
+    times = get(results, "all_times", [])
     
     if isempty(times)
-        println("Erro: Nenhum dado de tempo encontrado.")
+        println("Erro: Nenhum dado de tempo encontrado ou a chave 'all_times' não foi fornecida.")
         return
     end
     
