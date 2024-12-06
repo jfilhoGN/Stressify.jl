@@ -21,6 +21,22 @@ jobs:
         with:
           version: '1.11'
 
+      - name: Cache Julia artifacts
+        uses: actions/cache@v3
+        with:
+          path: ~/.julia/artifacts
+          key: ${{ runner.os }}-julia-artifacts-${{ hashFiles('**/Manifest.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-julia-artifacts-
+
+      - name: Cache Julia compiled modules
+        uses: actions/cache@v3
+        with:
+          path: ~/.julia/compiled
+          key: ${{ runner.os }}-julia-compiled-${{ hashFiles('**/Manifest.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-julia-compiled-
+
       - name: Install dependencies
         run: |
           julia --project=. -e '
