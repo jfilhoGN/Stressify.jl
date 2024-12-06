@@ -24,3 +24,9 @@ Printf = "1.11.0"
 Random = "1.11.0"
 Statistics = "1.11.1"
 Test = "1.11.0"
+
+[extras]
+Coverage = "a2441757-f54d-5643-a1b9-beb7d3d42940"
+
+[targets]
+test = ["Coverage"]

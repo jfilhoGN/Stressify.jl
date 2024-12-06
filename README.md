@@ -2,7 +2,6 @@
   <img src="./img/stressify.png" alt="Julia Performance Testing Logo" width="300px">
 </div>
 
-
 # Stressify Performance Test
 
 **Stressify Performance Test** is a performance testing tool written in Julia, inspired by tools like K6. It enables developers to simulate and analyze the performance of APIs under various load conditions with ease.

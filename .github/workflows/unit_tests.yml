@@ -1,4 +1,4 @@
-name: Julia Unit Tests
+name: Julia Tests and Coverage
 
 on:
   push:
@@ -29,14 +29,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-julia-artifacts-
 
-      - name: Cache Julia compiled modules
-        uses: actions/cache@v3
-        with:
-          path: ~/.julia/compiled
-          key: ${{ runner.os }}-julia-compiled-${{ hashFiles('**/Manifest.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-julia-compiled-
-
       - name: Install dependencies
         run: |
           julia --project=. -e '
@@ -45,8 +37,18 @@ jobs:
           Pkg.precompile();
           '
 
-      - name: Run tests
+      - name: Run tests and collect coverage
         run: |
           julia --project=. -e '
           using Pkg;
-          Pkg.test(; test_args=["--project=."]);'
+          using Coverage;
+          Pkg.test(; coverage=true);'
+
+      - name: Upload coverage report to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage.lcov
+          token: ${{ secrets.CODECOV_TOKEN }}
+          flags: unittests
+          name: Code coverage
+          fail_ci_if_error: true
