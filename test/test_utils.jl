@@ -53,5 +53,5 @@ end
 
     @test_throws ArgumentError Utils.random_json_object("non_existent.json")
 
-    rm(temp_json)  # limpeza
+    rm(temp_json) 
 end

@@ -374,6 +374,6 @@ function spawn_vu_task(vu_id, start_time, duration, iterations, requests, local_
     end
 end
 
-export options, http_get, http_post, http_put, http_patch, http_delete, run_test, Check
+export options, http_get, http_post, http_put, http_patch, http_delete, run_test, Check, format_results, compute_statistics
 
 end
