@@ -2,7 +2,7 @@
 
 julia_version = "1.11.2"
 manifest_format = "2.0"
-project_hash = "1dd17150bd587220e8400dd28f4c078f587480d7"
+project_hash = "73e97e1e860af47c0406ba159f7490ea45df6a19"
 
 [[deps.ArgTools]]
 uuid = "0dad84c5-d112-42e6-8d28-ef12dabb789f"
@@ -639,6 +639,12 @@ weakdeps = ["REPL"]
 
     [deps.Pkg.extensions]
     REPLExt = "REPL"
+
+[[deps.PkgDevTools]]
+deps = ["Pkg", "REPL"]
+git-tree-sha1 = "1309e483ca06a5d6d1997c0efc62694447947cd1"
+uuid = "2afb0842-1d6c-4499-8b39-71b06199676f"
+version = "0.1.0"
 
 [[deps.PlotThemes]]
 deps = ["PlotUtils", "Statistics"]
