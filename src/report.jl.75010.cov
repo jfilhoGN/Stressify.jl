@@ -1,0 +1,32 @@
+        - module Report
+        - 
+        - using Plots
+        - 
+        - """
+        -     generate_report(results::Dict)
+        - 
+        - Gera um gráfico de tempos de resposta.
+        - """
+        3 function generate_report(results::Dict, file_name::String="grafico.png")
+        5     times = get(results, "all_times", [])
+        -     
+        5     if isempty(times)
+        1         println("Erro: Nenhum dado de tempo encontrado ou a chave 'all_times' não foi fornecida.")
+        1         return
+        -     end
+        -     
+        4     p = plot(
+        -         1:length(times), times,
+        -         xlabel="Requisição", ylabel="Tempo (s)",
+        -         title="Desempenho do Endpoint",
+        -         legend=false
+        -     )
+        - 
+        2     savefig(p, file_name)
+        2     println("Gráfico salvo em: $file_name")
+        - end
+        - 
+        - 
+        - export generate_report
+        - 
+        - end

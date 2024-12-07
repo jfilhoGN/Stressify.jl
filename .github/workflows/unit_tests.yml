@@ -37,12 +37,9 @@ jobs:
           Pkg.precompile();
           '
 
-      - name: Run tests and collect coverage
+      - name: Run coverage script
         run: |
-          julia --project=. -e '
-          using Pkg;
-          using Coverage;
-          Pkg.test(; coverage=true);'
+          julia --project=. run_coverage.jl
 
       - name: Upload coverage report to Codecov
         uses: codecov/codecov-action@v3
@@ -52,3 +49,4 @@ jobs:
           flags: unittests
           name: Code coverage
           fail_ci_if_error: true
+
