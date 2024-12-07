@@ -6,7 +6,7 @@
 
 # Stressify Performance Test
 
-**Stressify Performance Test** is a performance testing tool written in Julia, inspired by tools like K6. It enables developers to simulate and analyze the performance of APIs under various load conditions with ease.
+**Stressify Performance Test** is a performance testing tool written in Julia, inspired by tools like K6. Its primary focus is on collecting, analyzing, and generating customizable metrics to help developers gain deeper insights into the performance of APIs under various load conditions. With Stressify, you can easily track performance indicators and extend the tool to create new metrics tailored to your needs.
 
 ## 🚀 Features
 
@@ -62,14 +62,6 @@ results = Stressify.run_test(
     Stressify.http_get("https://httpbin.org/get")  # Target API endpoint
 )
 ```
-
-### Real-Time Dashboard
-
-1. Start the dashboard:
-   ```bash
-   julia --project -e 'using Stressify.Dashboard; Stressify.Dashboard.start_dashboard()'
-   ```
-2. Open [http://localhost:8080](http://localhost:8080) in your browser to monitor the test in real time.
 
 ---
 
