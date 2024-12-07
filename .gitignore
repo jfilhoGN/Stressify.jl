@@ -1,0 +1,27 @@
+# Arquivos gerados pelo Coverage.jl
+coverage.*
+*.lcov
+
+# Logs e artefatos temporários
+*.log
+*.tmp
+*.bak
+
+# Diretórios de cache do Julia
+.julia/
+.julia_artifacts/
+.julia_compilecache/
+
+# Diretórios criados para ambientes do projeto
+deps/
+build/
+artifacts/
+
+# Diretórios de testes temporários
+test/.temp/
+test/*.jld2
+test/*.h5
+
+# Qualquer outro arquivo temporário ou não necessário
+*.DS_Store
+*.~lock.*
