@@ -1,17 +1,20 @@
-# Configuration file for the Sphinx documentation builder.
+import os
+import sys
+sys.path.insert(0, os.path.abspath('.'))
 
-# -- Project information -----------------------------------------------------
-project = 'Stressify.jl'
-copyright = '2024, JFilhoGN'
-author = '@jfilhogn'
+project = 'Stressify'
+author = 'jfilhogn'
+release = '0.1'
 
-# -- General configuration ---------------------------------------------------
-extensions = ['sphinx.ext.autodoc', 'sphinx.ext.viewcode']
+extensions = [
+    'sphinx.ext.autodoc',
+    'sphinx.ext.viewcode',
+    'sphinx.ext.napoleon',
+    'sphinx_rtd_theme',
+]
 
-# Paths for templates
-templates_path = ['_templates']
+#templates_path = ['_templates']
 exclude_patterns = []
 
-# -- Options for HTML output -------------------------------------------------
 html_theme = 'sphinx_rtd_theme'
 html_static_path = ['_static']
