@@ -4,7 +4,7 @@
 
 | Code Coverage | Documentation |
 |---------------|---------------|
-| [![codecov](https://codecov.io/github/jfilhoGN/StressifyPerformanceTest/branch/main/graph/badge.svg?token=JMUM3ITLXK)](https://codecov.io/github/jfilhoGN/StressifyPerformanceTest) | [![Documentation Status](https://readthedocs.org/projects/stressifyjl/badge/?version=latest)](https://stressifyjl.readthedocs.io/en/latest/) |
+| [![codecov](https://codecov.io/gh/jfilhoGN/Stressify.jl/graph/badge.svg?token=JMUM3ITLXK)](https://codecov.io/gh/jfilhoGN/Stressify.jl) | [![Documentation Status](https://readthedocs.org/projects/stressifyjl/badge/?version=latest)](https://stressifyjl.readthedocs.io/en/latest/) |
 
 
 # Stressify Performance Test
