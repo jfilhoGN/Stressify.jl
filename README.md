@@ -2,7 +2,10 @@
   <img src="./img/stressify.png" alt="Julia Performance Testing Logo" width="300px">
 </div>
 
-[![codecov](https://codecov.io/github/jfilhoGN/StressifyPerformanceTest/branch/main/graph/badge.svg?token=JMUM3ITLXK)](https://codecov.io/github/jfilhoGN/StressifyPerformanceTest)
+| Code Coverage | Documentation |
+|---------------|---------------|
+| [![codecov](https://codecov.io/github/jfilhoGN/StressifyPerformanceTest/branch/main/graph/badge.svg?token=JMUM3ITLXK)](https://codecov.io/github/jfilhoGN/StressifyPerformanceTest) | [![Documentation Status](https://readthedocs.org/projects/stressifyjl/badge/?version=latest)](https://stressifyjl.readthedocs.io/en/latest/) |
+
 
 # Stressify Performance Test
 
