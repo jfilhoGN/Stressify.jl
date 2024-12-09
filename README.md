@@ -75,7 +75,7 @@ After a test completes, you'll get detailed performance metrics, including:
 - **Iterations**: Total number of requests executed.
 - **Success Rate**: Percentage of successful requests.
 - **Error Rate**: Percentage of failed requests.
-- **Response Times**: Min, Max, Mean, Median, P90, P95, P99.
+- **Response Times**: Min, Max, Mean, Std, Median, P90, P95, P99.
 - **RPS**: Requests per second.
 - **TPS**: Transactions per second.
 

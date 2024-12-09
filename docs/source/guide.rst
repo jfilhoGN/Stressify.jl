@@ -14,7 +14,7 @@ Finally, using the Julia language, it was also created to facilitate the creatio
 - **Iterations**: Total number of requests executed.
 - **Success Rate**: Percentage of successful requests.
 - **Error Rate**: Percentage of failed requests.
-- **Response Times**: Min, Max, Mean, Median, P90, P95, P99.
+- **Response Times**: Min, Max, Mean, Std, Median, P90, P95, P99.
 - **RPS**: Requests per second.
 - **TPS**: Transactions per second.
 
