@@ -48,6 +48,21 @@ end
         JSON.print(f, test_json_array)
     end
 
+    @testset "Unsupported JSON structure" begin
+        file_path = "unsupported.json"
+        
+        unsupported_data = "12345" 
+        open(file_path, "w") do f
+            write(f, unsupported_data)
+        end
+        
+        try
+            @test_throws ArgumentError random_json_object(file_path)
+        finally
+            isfile(file_path) && rm(file_path)
+        end
+    end
+
     random_obj_array = Utils.random_json_object(temp_json)
     @test random_obj_array in test_json_array
 
