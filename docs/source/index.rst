@@ -9,6 +9,7 @@ Contents:
 
    guide
    api
+   examples
 
 Indices and tables
 ==================

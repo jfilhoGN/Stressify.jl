@@ -79,7 +79,7 @@ After a test completes, you'll get detailed performance metrics, including:
 - **RPS**: Requests per second.
 - **TPS**: Transactions per second.
 
-These results are available in the terminal and the live dashboard.
+These results are available in the terminal.
 
 ---
 
