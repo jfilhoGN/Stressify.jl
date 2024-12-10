@@ -2,9 +2,9 @@
   <img src="./img/stressify.png" alt="Julia Performance Testing Logo" width="300px">
 </div>
 
-| Code Coverage | Documentation |
-|---------------|---------------|
-| [![codecov](https://codecov.io/gh/jfilhoGN/Stressify.jl/graph/badge.svg?token=JMUM3ITLXK)](https://codecov.io/gh/jfilhoGN/Stressify.jl) | [![Documentation Status](https://readthedocs.org/projects/stressifyjl/badge/?version=latest)](https://stressifyjl.readthedocs.io/en/latest/) |
+| Code Coverage | Documentation | Community |
+|---------------|---------------|-----------|
+| [![codecov](https://codecov.io/gh/jfilhoGN/Stressify.jl/graph/badge.svg?token=JMUM3ITLXK)](https://codecov.io/gh/jfilhoGN/Stressify.jl) | [![Documentation Status](https://readthedocs.org/projects/stressifyjl/badge/?version=latest)](https://stressifyjl.readthedocs.io/en/latest/) | [![Gitter](https://img.shields.io/gitter/room/DAVFoundation/DAV-Contributors.svg?style=flat-square)](https://app.gitter.im/#/room/#stressify:gitter.im)
 
 
 # Stressify Performance Test

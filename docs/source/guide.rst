@@ -1,5 +1,9 @@
 .. _guide:
 
+.. _Stressify: https://github.com/jfilhoGN/Stressify.jl/tree/main/examples
+.. _Documentation: https://stressifyjl.readthedocs.io/en/latest/
+.. _Community: https://app.gitter.im/#/room/#stressify:gitter.im
+
 User Guide
 ==========
 
@@ -20,4 +24,11 @@ Finally, using the Julia language, it was also created to facilitate the creatio
 
 However, with Julia's vast mathematical and statistical library, it facilitates the creation of new metrics from the execution return, with a dictionary with all response times.
 
+Important Links
+-------------------
 
+In this links you can find more information about Stressify, enter in our community, it's a pleasure to have you with us.
+
+- `Stressify`_
+- `Documentation`_
+- `Community`_

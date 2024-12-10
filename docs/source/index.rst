@@ -1,7 +1,7 @@
 Welcome to Stressify.jl's documentation!
 ========================================
 
-Contents:
+Contents: Welcome to Stressify.jl' Performance Testing Documentation!
 
 .. toctree::
    :maxdepth: 2
