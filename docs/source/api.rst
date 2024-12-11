@@ -8,7 +8,7 @@ This section provides detailed documentation of the Stressify.jl API.
 Functions
 ---------
 
-.. function:: options(; vus::Int=1, format::String="default", ramp_duration::Union{Float64, Nothing}=nothing, max_vus::Union{Int, Nothing}=nothing, iterations::Union{Int, Nothing}=nothing, duration::Union{Float64, Nothing}=nothing)
+.. function:: options(; vus::Int=1, format::String="default", ramp_duration::Union{Float64, Nothing}=nothing, max_vus::Union{Int, Nothing}=nothing, iterations::Union{Int, Nothing}=nothing, duration::Union{Float64, Nothing}=nothing, noDebug::Bool=false)
    
    Determine the test configuration options, such as the number of virtual users (VUs), format, ramp duration, maximum VUs, iterations, and duration.
    
@@ -18,6 +18,7 @@ Functions
    :param max_vus: The maximum number of virtual users to simulate.
    :param iterations: The number of iterations to run. Don`t use with format "vus-ramping".
    :param duration: The duration of the test in seconds.
+   :param noDebug: Disable debug mode.
 
 .. function:: run_test(requests::Vararg{NamedTuple}
 

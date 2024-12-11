@@ -26,16 +26,28 @@ Configura opções globais para os testes de performance.
 """
 function options(; vus::Int = 1, format::String = "default", max_vus::Union{Int, Nothing} = nothing,
 	ramp_duration::Union{Float64, Nothing} = nothing, iterations::Union{Int, Nothing} = nothing,
-	duration::Union{Float64, Nothing} = nothing)
+	duration::Union{Float64, Nothing} = nothing, noDebug::Bool = false)
 	GLOBAL_OPTIONS[:vus] = vus
 	GLOBAL_OPTIONS[:format] = format
 	GLOBAL_OPTIONS[:max_vus] = max_vus
 	GLOBAL_OPTIONS[:ramp_duration] = ramp_duration
 	GLOBAL_OPTIONS[:iterations] = iterations
 	GLOBAL_OPTIONS[:duration] = duration
+    GLOBAL_OPTIONS[:noDebug] = noDebug
 
 	if format == "vus-ramping" && (max_vus === nothing || duration === nothing || ramp_duration === nothing)
 		error("Para o formato 'vus-ramping', você deve especificar 'max_vus', 'ramp_duration' e 'duration'.")
+	end
+end
+
+"""
+	debug_log(msg::String)
+
+Loga mensagens de depuração apenas se a opção `noDebug` estiver desativada.
+"""
+function debug_log(msg::String)
+	if !get(GLOBAL_OPTIONS, :noDebug, false)
+		println(msg)
 	end
 end
 
@@ -53,14 +65,14 @@ function check(response, method::String, checks::Vector{Check})
 		try
 			if chk.condition(response)
 				push!(CHECK_RESULTS[], "✔️ $(method) - $(chk.description) - Success")
-				println("✔️ $(method) - $(chk.description) - Success")
+				debug_log("✔️ $(method) - $(chk.description) - Success")
 			else
 				push!(CHECK_RESULTS[], "❌ $(method) - $(chk.description) - Failed")
-				println("❌ $(method) - $(chk.description) - Failed")
+				debug_log("❌ $(method) - $(chk.description) - Failed")
 			end
 		catch e
 			push!(CHECK_RESULTS[], "⚠️ $(method) - $(chk.description) - Error: $e")
-			println("⚠️ $(method) - $(chk.description) - Error: $e")
+			debug_log("⚠️ $(method) - $(chk.description) - Error: $e")
 		end
 	end
 end
@@ -276,7 +288,7 @@ function run_test(requests::Vararg{NamedTuple})
                 sleep(interval)
                 current_vus = new_vu
                 atomic_add!(active_vus, 1)
-                println("Ramp-up: Incrementando VUs para $current_vus")
+                debug_log("Ramp-up: Incrementando VUs para $current_vus")
 
                 push!(tasks, spawn_vu_task(
                     new_vu,
@@ -289,7 +301,7 @@ function run_test(requests::Vararg{NamedTuple})
                 ))
             end
             
-            println("Ramp-up concluído. Total de VUs ativos: $(active_vus[])")
+            debug_log("Ramp-up concluído. Total de VUs ativos: $(active_vus[])")
         end
 
         # Aguarda o término do ramp-up
@@ -337,7 +349,7 @@ end
 
 function spawn_vu_task(vu_id, start_time, duration, iterations, requests, local_results, total_errors)
     return Threads.@spawn begin
-        println("Thread $vu_id inicializada.")
+        debug_log("Thread $vu_id inicializada.")
         request_idx = 1
         iteration_count = 0
         
@@ -361,7 +373,7 @@ function spawn_vu_task(vu_id, start_time, duration, iterations, requests, local_
                 iteration_count += 1
 
                 method_name = string(requests[request_idx].method) |> x -> split(x, ".")[end]
-                println("Requisição (Método: $method_name) finalizada no thread $vu_id (Tempo: $elapsed_time segundos)")
+                debug_log("Requisição (Método: $method_name) finalizada no thread $vu_id (Tempo: $elapsed_time segundos)")
             catch e
                 atomic_add!(total_errors, 1)
                 println("Erro na requisição no thread $vu_id: ", e)
@@ -370,7 +382,7 @@ function spawn_vu_task(vu_id, start_time, duration, iterations, requests, local_
             request_idx = (request_idx % length(requests)) + 1
         end
         
-        println("Thread $vu_id finalizada após $iteration_count iterações.")
+        debug_log("Thread $vu_id finalizada após $iteration_count iterações.")
     end
 end
 
