@@ -171,6 +171,7 @@ end
 	@test_throws ErrorException Stressify.options(format = "vus-ramping", max_vus = nothing, ramp_duration = 5.0, duration = 60.0)
 	@test_throws ErrorException Stressify.options(format = "vus-ramping", max_vus = 50, ramp_duration = nothing, duration = 60.0)
 	@test_throws ErrorException Stressify.options(format = "vus-ramping", max_vus = 50, ramp_duration = 5.0, duration = nothing)
+	Stressify.options(vus = 4, format = "vus-ramping", max_vus = 4, ramp_duration = 5.0, iterations = nothing, duration = 60.0, noDebug = true)
 
 	Stressify.options(format="default", max_vus=nothing, ramp_duration=nothing, duration=nothing)
 

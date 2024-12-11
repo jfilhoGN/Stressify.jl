@@ -142,6 +142,23 @@ Available Examples
   
   **Purpose**: Ideal for API testing and check the return from endpoint are you testing.
 
+9. **NinehtTest.jl**
+   - **Description**: Example of how to use Stressify to create tests and remove all Debugs in the code.
+   
+  **Key Features**:
+   
+   - Loads API endpoints.
+   - Monitors basic performance metrics.
+   - Remove all debugs in the code.
+   
+  **How to Run**:
+    Execute the following command:
+    ```
+    julia examples/eightTest.jl
+    ```
+  
+  **Purpose**: Ideal to running the test in pipeline wihtout debugs.
+
 
 How to run the examples? 
 ------------------------
