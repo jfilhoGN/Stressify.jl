@@ -3,6 +3,7 @@
 .. _Stressify: https://github.com/jfilhoGN/Stressify.jl/tree/main/examples
 .. _Documentation: https://stressifyjl.readthedocs.io/en/latest/
 .. _Community: https://app.gitter.im/#/room/#stressify:gitter.im
+.. _X(Twitter): https://x.com/Stressifyjl
 
 User Guide
 ==========
@@ -32,3 +33,4 @@ In this links you can find more information about Stressify, enter in our commun
 - `Stressify`_
 - `Documentation`_
 - `Community`_
+- `X(Twitter)`_
