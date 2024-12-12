@@ -4,9 +4,9 @@
 
 <div align="center">
 
-| Code Coverage | Documentation | Community |
-|---------------|---------------|-----------|
-| [![codecov](https://codecov.io/gh/jfilhoGN/Stressify.jl/graph/badge.svg?token=JMUM3ITLXK)](https://codecov.io/gh/jfilhoGN/Stressify.jl) | [![Documentation Status](https://readthedocs.org/projects/stressifyjl/badge/?version=latest)](https://stressifyjl.readthedocs.io/en/latest/) | [![Gitter](https://img.shields.io/gitter/room/DAVFoundation/DAV-Contributors.svg?style=flat-square)](https://app.gitter.im/#/room/#stressify:gitter.im) |
+| Code Coverage | Documentation | Community | Social |
+|---------------|---------------|-----------|--------|
+| [![codecov](https://codecov.io/gh/jfilhoGN/Stressify.jl/graph/badge.svg?token=JMUM3ITLXK)](https://codecov.io/gh/jfilhoGN/Stressify.jl) | [![Documentation Status](https://readthedocs.org/projects/stressifyjl/badge/?version=latest)](https://stressifyjl.readthedocs.io/en/latest/) | [![Gitter](https://img.shields.io/gitter/room/DAVFoundation/DAV-Contributors.svg?style=flat-square)](https://app.gitter.im/#/room/#stressify:gitter.im) | [![X Badge](https://img.shields.io/badge/follow-%40Stressify-blue?style=flat-square&logo=x)](https://x.com/Stressifyjl) |
 
 </div>
 
@@ -33,17 +33,28 @@ Ensure you have [Julia](https://julialang.org/downloads/) installed on your syst
 
 ### Steps
 
-1. Clone this repository:
-   ```bash
-   git clone https://github.com/jfilhoGN/StressifyPerformanceTest.git
-   cd StressifyPerformanceTest
-   ```
-2. Install required dependencies:
-   ```julia
-   using Pkg
-   Pkg.instantiate()
-   ```
+1. In Julia REPL:
+```bash
+using Pkg
+Pkg.add("Stressify")
+```
+After installation in your code:
 
+```julia
+using Stressify
+
+#execute for the one VU for one iteration
+Stressify.options(
+    vus = 1,           
+    iterations = 1,    
+    duration = nothing  
+)
+
+results = Stressify.run_test(
+    Stressify.http_get("https://httpbin.org/get"),
+)
+
+```
 ---
 
 ## 🛠 Usage
