@@ -114,7 +114,7 @@ Contributions are welcome! To get started:
    ```
 5. Push the branch and create a pull request.
 
-For major changes, please open an issue first to discuss your proposal.
+For major changes, please open an issue first to discuss your proposal or enter in our community in this link [Community](https://app.gitter.im/#/room/#stressify:gitter.im) , you will be welcome.
 
 ---
 
