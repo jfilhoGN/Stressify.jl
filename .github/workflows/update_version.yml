@@ -1,0 +1,35 @@
+name: Update JuliaHub Version
+
+on:
+  push:
+    tags:
+      - 'v*.*.*' 
+
+jobs:
+  update_version:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repository
+        uses: actions/checkout@v3
+
+      - name: Install Julia
+        uses: julia-actions/setup-julia@v1
+        with:
+          version: '1.11'
+
+      - name: Authenticate with JuliaHub
+        env:
+          JULIAHUB_TOKEN: ${{ secrets.JULIAHUB_TOKEN }}
+        run: |
+          julia -e 'using Pkg; Pkg.add("Registrator"); Pkg.add("TagBot")'
+
+      - name: Trigger JuliaHub Update
+        env:
+          JULIAHUB_TOKEN: ${{ secrets.JULIAHUB_TOKEN }}
+        run: |
+          julia -e '
+          using Registrator;
+          Registrator.register(
+              auth_token=ENV["JULIAHUB_TOKEN"]
+          )
+          '
