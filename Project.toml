@@ -1,7 +1,7 @@
 name = "Stressify"
 uuid = "8a229381-d7eb-4865-a507-cf9af2c5cd1e"
 authors = ["João Martins Filho <joaomfilho1995@gmail.com>"]
-version = "0.1.0"
+version = "0.2.0"
 
 [deps]
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
