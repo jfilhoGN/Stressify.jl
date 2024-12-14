@@ -3,33 +3,48 @@ name: Update JuliaHub Version
 on:
   push:
     tags:
-      - 'v*.*.*' 
+      - 'v*.*.*'
 
 jobs:
   update_version:
     runs-on: ubuntu-latest
     steps:
+      # Checkout do código
       - name: Checkout the repository
         uses: actions/checkout@v3
 
+      # Instalar Julia
       - name: Install Julia
         uses: julia-actions/setup-julia@v1
         with:
           version: '1.11'
 
-      - name: Authenticate with JuliaHub
-        env:
-          JULIAHUB_TOKEN: ${{ secrets.JULIAHUB_TOKEN }}
+      # Instalar dependências necessárias
+      - name: Install dependencies
         run: |
-          julia -e 'using Pkg; Pkg.add("Registrator"); Pkg.add("TagBot")'
+          julia -e 'using Pkg; Pkg.add("Registrator")'
 
-      - name: Trigger JuliaHub Update
+      # Atualizar os registros
+      - name: Update Julia Registries
+        run: |
+          julia -e 'using Pkg; Pkg.Registry.update()'
+
+      # Registrar nova versão no JuliaHub
+      - name: Register new version with JuliaHub
         env:
           JULIAHUB_TOKEN: ${{ secrets.JULIAHUB_TOKEN }}
         run: |
           julia -e '
           using Registrator;
-          Registrator.register(
-              auth_token=ENV["JULIAHUB_TOKEN"]
-          )
+          cd("."); # Garante que estamos no diretório do projeto
+          Registrator.register(auth_token=ENV["JULIAHUB_TOKEN"]);
           '
+
+  # Adicionar o TagBot para gerenciar tags e releases
+  tagbot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: TagBot
+        uses: JuliaRegistries/TagBot@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
