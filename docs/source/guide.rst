@@ -89,6 +89,19 @@ The output will be a dictionary with the following structure:
     ---------- Resultados dos Checks ----------
 
 
+Using Docker to execute Stressify
+=================================
+
+To run Stressify without installing anything locally, use Docker:
+
+.. code-block:: bash
+
+    docker pull jfilhogn/stressify:latest
+    docker run --rm jfilhogn/stressify:latest script.jl
+
+
+Running the docker image this way will execute the script you want to run, making it easier to execute. In the directory `./docker` you can find the Dockerfile and the script.jl file that is used to run the image as example.
+
 Important Links
 -------------------
 
