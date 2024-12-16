@@ -10,6 +10,7 @@ Contents: Welcome to Stressify.jl' Performance Testing Documentation!
    guide
    api
    examples
+   article
 
 Indices and tables
 ==================
