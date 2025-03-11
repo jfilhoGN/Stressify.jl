@@ -21,7 +21,6 @@
 - **Multiple HTTP Methods**: Supports GET, POST, PUT, PATCH, and DELETE requests.
 - **Custom Checks**: Validate API responses with user-defined conditions for flexible testing.
 - **Detailed Metrics**: Includes success rates, error rates, percentile response times (P90, P95, P99), RPS, and TPS.
-- **Real-Time Dashboard**: Monitor test execution and metrics in a live dashboard.
 
 ---
 

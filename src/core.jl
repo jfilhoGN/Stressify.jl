@@ -33,7 +33,7 @@ function options(; vus::Int = 1, format::String = "default", max_vus::Union{Int,
 	GLOBAL_OPTIONS[:ramp_duration] = ramp_duration
 	GLOBAL_OPTIONS[:iterations] = iterations
 	GLOBAL_OPTIONS[:duration] = duration
-    GLOBAL_OPTIONS[:noDebug] = noDebug
+	GLOBAL_OPTIONS[:noDebug] = noDebug
 
 	if format == "vus-ramping" && (max_vus === nothing || duration === nothing || ramp_duration === nothing)
 		error("Para o formato 'vus-ramping', você deve especificar 'max_vus', 'ramp_duration' e 'duration'.")
@@ -78,24 +78,24 @@ function check(response, method::String, checks::Vector{Check})
 end
 
 # Funções de criação de requisições HTTP
-function http_get(endpoint::String; checks = Vector{Check}())
-	return (method = HTTP.get, url = endpoint, payload = nothing, headers = Dict(), checks = checks)
+function http_get(endpoint::String; checks = Vector{Check}(), rate_limiter = nothing)
+	return (method = HTTP.get, url = endpoint, payload = nothing, headers = Dict(), checks = checks, rate_limiter = rate_limiter)
 end
 
-function http_post(endpoint::String; payload = nothing, headers = Dict(), checks = Vector{Check}())
-	return (method = HTTP.post, url = endpoint, payload = payload, headers = headers, checks = checks)
+function http_post(endpoint::String; payload = nothing, headers = Dict(), checks = Vector{Check}(), rate_limiter = nothing)
+	return (method = HTTP.post, url = endpoint, payload = payload, headers = headers, checks = checks, rate_limiter = rate_limiter)
 end
 
-function http_put(endpoint::String; payload = nothing, headers = Dict(), checks = Vector{Check}())
-	return (method = HTTP.put, url = endpoint, payload = payload, headers = headers, checks = checks)
+function http_put(endpoint::String; payload = nothing, headers = Dict(), checks = Vector{Check}(), rate_limiter = nothing)
+	return (method = HTTP.put, url = endpoint, payload = payload, headers = headers, checks = checks, rate_limiter = rate_limiter)
 end
 
-function http_patch(endpoint::String; payload = nothing, headers = Dict(), checks = Vector{Check}())
-	return (method = HTTP.patch, url = endpoint, payload = payload, headers = headers, checks = checks)
+function http_patch(endpoint::String; payload = nothing, headers = Dict(), checks = Vector{Check}(), rate_limiter = nothing)
+	return (method = HTTP.patch, url = endpoint, payload = payload, headers = headers, checks = checks, rate_limiter = rate_limiter)
 end
 
-function http_delete(endpoint::String; headers = Dict(), checks = Vector{Check}())
-	return (method = HTTP.delete, url = endpoint, payload = nothing, headers = headers, checks = checks)
+function http_delete(endpoint::String; headers = Dict(), checks = Vector{Check}(), rate_limiter = nothing)
+	return (method = HTTP.delete, url = endpoint, payload = nothing, headers = headers, checks = checks, rate_limiter = rate_limiter)
 end
 
 """
@@ -106,8 +106,13 @@ Executa uma requisição HTTP com base em um `NamedTuple` que define o método, 
 - `request`: NamedTuple contendo `method`, `url`, `payload`, `headers` e `checks`.
 """
 function perform_request(request::NamedTuple)
-	method, url, payload, headers, checks =
-		request.method, request.url, request.payload, request.headers, request.checks
+	method, url, payload, headers, checks, rate_limiter =
+		request.method, request.url, request.payload, request.headers, request.checks, request.rate_limiter
+
+	# Aplica o rate limiter específico da requisição, se existir
+	if rate_limiter !== nothing
+		control_throughput(rate_limiter)
+	end
 
 	response = if method in (HTTP.get, HTTP.delete)
 		method(url, headers)
@@ -228,126 +233,152 @@ function format_results(results::Dict{String, <:Any})
     """
 end
 
-
 """
 	run_test(requests::Vararg{NamedTuple})
 
 Executa os testes de performance com suporte ao formato `vus-ramping`, incluindo `ramp_duration`.
 """
-function run_test(requests::Vararg{NamedTuple})
-    vus = get(GLOBAL_OPTIONS, :vus, 1)
-    format = get(GLOBAL_OPTIONS, :format, "default")
-    max_vus = get(GLOBAL_OPTIONS, :max_vus, nothing)
-    ramp_duration = get(GLOBAL_OPTIONS, :ramp_duration, 0.0)
-    iterations = get(GLOBAL_OPTIONS, :iterations, nothing)
-    duration = get(GLOBAL_OPTIONS, :duration, nothing)
+function run_test(requests::Vararg{NamedTuple}; rate_limiter = nothing)
+	vus = get(GLOBAL_OPTIONS, :vus, 1)
+	format = get(GLOBAL_OPTIONS, :format, "default")
+	max_vus = get(GLOBAL_OPTIONS, :max_vus, nothing)
+	ramp_duration = get(GLOBAL_OPTIONS, :ramp_duration, 0.0)
+	iterations = get(GLOBAL_OPTIONS, :iterations, nothing)
+	duration = get(GLOBAL_OPTIONS, :duration, nothing)
 
-    if iterations === nothing && duration === nothing
-        error("Você deve especificar 'iterations' ou 'duration' nas opções globais.")
-    end
+	if iterations === nothing && duration === nothing
+		error("Você deve especificar 'iterations' ou 'duration' nas opções globais.")
+	end
 
-    start_time = time()
-    total_errors = Atomic{Int}(0)
-    active_vus = Atomic{Int}(vus)
-    tasks = Task[]
-    
-    # Inicializa o vetor de resultados com o número máximo possível de VUs
-    local_results = [Float64[] for _ in 1:(max_vus === nothing ? vus : max_vus)]
+	start_time = time()
+	total_errors = Atomic{Int}(0)
+	active_vus = Atomic{Int}(vus)
+	tasks = Task[]
 
-    if format == "vus-ramping" && max_vus !== nothing && ramp_duration > 0.0 && duration !== nothing
-        # Calcula quantos VUs precisamos adicionar
-        vus_to_add = max_vus - vus
-        
-        # Calcula o intervalo entre adições de VUs para garantir distribuição uniforme
-        if vus_to_add > 0
-            interval = ramp_duration / vus_to_add
-        else
-            interval = ramp_duration
-        end
-        
-        # Task para gerenciar o ramp-up
-        ramp_task = @async begin
-            current_vus = vus
-            ramp_start = time()
-            
-            # Inicia as tasks para os VUs iniciais
-            for t in 1:vus
-                push!(tasks, spawn_vu_task(
-                    t,
-                    start_time,
-                    duration + ramp_duration,  # Duração total inclui ramping
-                    iterations,
-                    requests,
-                    local_results,
-                    total_errors
-                ))
-            end
-            
-            # Adiciona novos VUs gradualmente durante o ramp_duration
-            for new_vu in (vus + 1):max_vus
-                sleep(interval)
-                current_vus = new_vu
-                atomic_add!(active_vus, 1)
-                debug_log("Ramp-up: Incrementando VUs para $current_vus")
+	# Inicializa o vetor de resultados com o número máximo possível de VUs
+	local_results = [Float64[] for _ in 1:(max_vus === nothing ? vus : max_vus)]
 
-                push!(tasks, spawn_vu_task(
-                    new_vu,
-                    start_time,
-                    duration + ramp_duration - (time() - start_time),  # Ajusta duração restante
-                    iterations,
-                    requests,
-                    local_results,
-                    total_errors
-                ))
-            end
-            
-            debug_log("Ramp-up concluído. Total de VUs ativos: $(active_vus[])")
-        end
+	if format == "vus-ramping" && max_vus !== nothing && ramp_duration > 0.0 && duration !== nothing
+		# Calcula quantos VUs precisamos adicionar
+		vus_to_add = max_vus - vus
 
-        # Aguarda o término do ramp-up
-        wait(ramp_task)
-        
-        # Aguarda o término da duração total
-        remaining_time = duration + ramp_duration - (time() - start_time)
-        if remaining_time > 0
-            sleep(remaining_time)
-        end
-    else
-        # Execução padrão sem ramping
-        for t in 1:vus
-            push!(tasks, spawn_vu_task(
-                t,
-                start_time,
-                duration,
-                iterations,
-                requests,
-                local_results,
-                total_errors
-            ))
-        end
-        
-        if duration !== nothing
-            sleep(duration)
-        end
-    end
+		# Calcula o intervalo entre adições de VUs para garantir distribuição uniforme
+		if vus_to_add > 0
+			interval = ramp_duration / vus_to_add
+		else
+			interval = ramp_duration
+		end
 
-    # Aguarda todas as tasks terminarem
-    foreach(wait, tasks)
+		# Task para gerenciar o ramp-up
+		ramp_task = @async begin
+			current_vus = vus
+			ramp_start = time()
 
-    # Processa os resultados
-    all_times = vcat(local_results...)
-    total_requests = length(all_times) + total_errors[]
-    total_duration = time() - start_time
+			# Inicia as tasks para os VUs iniciais
+			for t in 1:vus
+				push!(tasks, spawn_vu_task(
+					t,
+					start_time,
+					duration + ramp_duration,
+					iterations,
+					requests,
+					local_results,
+					total_errors,
+					rate_limiter = rate_limiter,  # Passa o rate_limiter como argumento nomeado
+				))
+			end
 
-    results = compute_statistics(all_times, total_errors, total_requests, total_duration, active_vus[])
-    println(format_results(results))
-    println("\n---------- Resultados dos Checks ----------")
-    println(join(CHECK_RESULTS[], "\n"))
-    
-    return results
+			# Adiciona novos VUs gradualmente durante o ramp_duration
+			for new_vu in (vus+1):max_vus
+				sleep(interval)
+				current_vus = new_vu
+				atomic_add!(active_vus, 1)
+				debug_log("Ramp-up: Incrementando VUs para $current_vus")
+
+				push!(tasks, spawn_vu_task(
+					new_vu,
+					start_time,
+					duration + ramp_duration - (time() - start_time),  # Ajusta duração restante
+					iterations,
+					requests,
+					local_results,
+					total_errors,
+				))
+			end
+
+			debug_log("Ramp-up concluído. Total de VUs ativos: $(active_vus[])")
+		end
+
+		# Aguarda o término do ramp-up
+		wait(ramp_task)
+
+		# Aguarda o término da duração total
+		remaining_time = duration + ramp_duration - (time() - start_time)
+		if remaining_time > 0
+			sleep(remaining_time)
+		end
+	else
+		# Execução padrão sem ramping
+		for t in 1:vus
+			push!(tasks, spawn_vu_task(
+				t,
+				start_time,
+				duration,
+				iterations,
+				requests,
+				local_results,
+				total_errors,
+			))
+		end
+
+		if duration !== nothing
+			sleep(duration)
+		end
+	end
+
+	# Aguarda todas as tasks terminarem
+	foreach(wait, tasks)
+
+	# Processa os resultados
+	all_times = vcat(local_results...)
+	total_requests = length(all_times) + total_errors[]
+	total_duration = time() - start_time
+
+	results = compute_statistics(all_times, total_errors, total_requests, total_duration, active_vus[])
+	println(format_results(results))
+	println("\n---------- Resultados dos Checks ----------")
+	println(join(CHECK_RESULTS[], "\n"))
+
+	return results
 end
 
-function spawn_vu_task(vu_id, start_time, duration, iterations, requests, local_results, total_errors)
+mutable struct RateLimiter
+	rps::Float64
+	last_request_time::Float64
+end
+
+function RateLimiter(rps::Float64)
+	return RateLimiter(rps, 0.0)
+end
+
+function control_throughput(rate_limiter::RateLimiter)
+	min_interval = 1.0 / rate_limiter.rps
+	now = time()
+
+	if rate_limiter.last_request_time == 0.0
+		rate_limiter.last_request_time = now
+		return
+	end
+	elapsed = now - rate_limiter.last_request_time
+
+	if elapsed < min_interval
+		sleep(min_interval - elapsed)
+	end
+
+	rate_limiter.last_request_time = time()
+end
+
+function spawn_vu_task(vu_id, start_time, duration, iterations, requests, local_results, total_errors; rate_limiter=nothing)
     return Threads.@spawn begin
         debug_log("Thread $vu_id inicializada.")
         request_idx = 1
@@ -356,23 +387,29 @@ function spawn_vu_task(vu_id, start_time, duration, iterations, requests, local_
         while true
             current_time = time() - start_time
             
-            # Verifica condições de parada
             if iterations !== nothing && iteration_count >= iterations
                 break
             end
-            
+
             if duration !== nothing && current_time >= duration
                 break
             end
             
             try
+                request = requests[request_idx]
+                if request.rate_limiter !== nothing
+                    control_throughput(request.rate_limiter)
+                elseif rate_limiter !== nothing
+                    control_throughput(rate_limiter)
+                end
+                
                 elapsed_time = @elapsed begin
-                    perform_request(requests[request_idx])
+                    perform_request(request)
                 end
                 push!(local_results[vu_id], elapsed_time)
                 iteration_count += 1
 
-                method_name = string(requests[request_idx].method) |> x -> split(x, ".")[end]
+                method_name = string(request.method) |> x -> split(x, ".")[end]
                 debug_log("Requisição (Método: $method_name) finalizada no thread $vu_id (Tempo: $elapsed_time segundos)")
             catch e
                 atomic_add!(total_errors, 1)
@@ -386,6 +423,6 @@ function spawn_vu_task(vu_id, start_time, duration, iterations, requests, local_
     end
 end
 
-export options, http_get, http_post, http_put, http_patch, http_delete, run_test, Check, format_results, compute_statistics
+export options, http_get, http_post, http_put, http_patch, http_delete, run_test, Check, format_results, compute_statistics, RateLimiter, control_throughput, perform_request, percentile
 
 end
