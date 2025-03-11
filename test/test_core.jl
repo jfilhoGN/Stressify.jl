@@ -254,3 +254,35 @@ end
         @test response.status == 200
     end
 end
+
+@testset "check function" begin
+    response = HTTP.Response(200)
+
+    success_check = Stressify.Check("Status is 200", r -> r.status == 200)
+    fail_check = Stressify.Check("Status is 404", r -> r.status == 404)
+    error_check = Stressify.Check("Throws an error", r -> error("Something went wrong"))
+
+    @testset "successful check" begin
+        Stressify.CHECK_RESULTS[] = []
+
+        Stressify.check(response, "GET", [success_check])
+
+        @test Stressify.CHECK_RESULTS[] == ["✔️ GET - Status is 200 - Success"]
+    end
+
+    @testset "failed check" begin
+        Stressify.CHECK_RESULTS[] = []
+
+        Stressify.check(response, "GET", [fail_check])
+
+        @test Stressify.CHECK_RESULTS[] == ["❌ GET - Status is 404 - Failed"]
+    end
+
+    @testset "check that throws an error" begin
+        Stressify.CHECK_RESULTS[] = []
+
+        Stressify.check(response, "GET", [error_check])
+
+        @test startswith(Stressify.CHECK_RESULTS[][1], "⚠️ GET - Throws an error - Error:")
+    end
+end
