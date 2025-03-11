@@ -207,32 +207,31 @@ Formata o dicionário de resultados de métricas de desempenho em um resumo leg�
 Retorna uma string formatada com as principais métricas.
 """
 function format_results(results::Dict{String, <:Any})
-	return """
-	================== Stressify ==================
-		VUs                    : $(lpad(results["vus"], 10))
-		Iterações Totais       : $(lpad(results["iterations"], 10))
-		Taxa de Sucesso (%)    : $(lpad(round(results["success_rate"], digits=2), 10))
-		Taxa de Erros (%)      : $(lpad(round(results["error_rate"], digits=2), 10))
-		Requisições por Segundo: $(lpad(round(results["rps"], digits=2), 10))
-		Transações por Segundo : $(lpad(round(results["tps"], digits=2), 10))
-		Número de Erros        : $(lpad(results["errors"], 10))
+    return """
+    ================== Stressify ==================
+        VUs                    : $(lpad(results["vus"], 10))
+        Iterações Totais       : $(lpad(results["iterations"], 10))
+        Taxa de Sucesso (%)    : $(lpad(round(results["success_rate"], digits=2), 10))
+        Taxa de Erros (%)      : $(lpad(round(results["error_rate"], digits=2), 10))
+        Requisições por Segundo: $(lpad(round(results["rps"], digits=2), 10))
+        Transações por Segundo : $(lpad(round(results["tps"], digits=2), 10))
+        Número de Erros        : $(lpad(results["errors"], 10))
 
-	---------- Métricas de Tempo (s) ----------
-		Tempo Mínimo           : $(lpad(round(results["min_time"], digits=4), 10))
-		Tempo Máximo           : $(lpad(round(results["max_time"], digits=4), 10))
-		Tempo Médio            : $(lpad(round(results["mean_time"], digits=4), 10))
-		Mediana                : $(lpad(round(results["median_time"], digits=4), 10))
-		P90                    : $(lpad(round(results["p90_time"], digits=4), 10))
-		P95                    : $(lpad(round(results["p95_time"], digits=4), 10))
-		P99                    : $(lpad(round(results["p99_time"], digits=4), 10))
-		Desvio Padrão          : $(lpad(round(results["std_time"], digits=4), 10))
+    ---------- Métricas de Tempo (s) ----------
+        Tempo Mínimo           : $(lpad(round(results["min_time"], digits=4), 10))
+        Tempo Máximo           : $(lpad(round(results["max_time"], digits=4), 10))
+        Tempo Médio            : $(lpad(round(results["mean_time"], digits=4), 10))
+        Mediana                : $(lpad(round(results["median_time"], digits=4), 10))
+        P90                    : $(lpad(round(results["p90_time"], digits=4), 10))
+        P95                    : $(lpad(round(results["p95_time"], digits=4), 10))
+        P99                    : $(lpad(round(results["p99_time"], digits=4), 10))
+        Desvio Padrão          : $(lpad(round(results["std_time"], digits=4), 10))
 
-	---------- Detalhamento de Tempos ----------
-		Todos os Tempos (s)    : $(join(round.(results["all_times"], digits=4), ", "))
-	==========================================================
-	"""
+    ---------- Detalhamento de Tempos ----------
+        Todos os Tempos (s)    : $(join(round.(results["all_times"], digits=4), ", "))
+    ==========================================================
+    """
 end
-
 
 """
 	run_test(requests::Vararg{NamedTuple})
@@ -424,6 +423,6 @@ function spawn_vu_task(vu_id, start_time, duration, iterations, requests, local_
     end
 end
 
-export options, http_get, http_post, http_put, http_patch, http_delete, run_test, Check, format_results, compute_statistics, RateLimiter, control_throughput, perform_request
+export options, http_get, http_post, http_put, http_patch, http_delete, run_test, Check, format_results, compute_statistics, RateLimiter, control_throughput, perform_request, percentile
 
 end

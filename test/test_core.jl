@@ -5,6 +5,158 @@ using Stressify
 using Mocking
 import .Core
 
+@testset "compute_statistics" begin
+    @testset "with empty data" begin
+        all_times = Float64[]
+        total_errors = Base.Threads.Atomic{Int}(0)
+        total_requests = 0
+        total_duration = 0.0
+        vus = 1
+
+        stats = Stressify.compute_statistics(all_times, total_errors, total_requests, total_duration, vus)
+        @test isnan(stats["min_time"])
+        @test isnan(stats["max_time"])
+        @test isnan(stats["mean_time"])
+        @test isnan(stats["median_time"])
+        @test isnan(stats["std_time"])
+        @test isnan(stats["p90_time"])
+        @test isnan(stats["p95_time"])
+        @test isnan(stats["p99_time"])
+        @test isnan(stats["success_rate"])
+        @test isnan(stats["error_rate"])
+        @test isnan(stats["rps"])
+        @test isnan(stats["tps"])
+    end
+
+    @testset "with data" begin
+        all_times = [0.1, 0.2, 0.5, 0.1, 0.3]
+        total_errors = Base.Threads.Atomic{Int}(1)
+        total_requests = 5
+        total_duration = 1.0
+        vus = 1
+
+        stats = Stressify.compute_statistics(all_times, total_errors, total_requests, total_duration, vus)
+        @test stats["min_time"] ≈ 0.1
+        @test stats["max_time"] ≈ 0.5
+        @test stats["mean_time"] ≈ 0.24
+        @test stats["median_time"] ≈ 0.2
+        @test stats["std_time"] ≈ 0.1673 atol = 0.0001 
+        @test stats["p90_time"] ≈ 0.5
+        @test stats["p95_time"] ≈ 0.5
+        @test stats["p99_time"] ≈ 0.5
+        @test stats["success_rate"] ≈ 80.0
+        @test stats["error_rate"] ≈ 20.0
+        @test stats["rps"] ≈ 5.0
+        @test stats["tps"] ≈ 4.0
+    end
+end
+
+@testset "percentile" begin
+    @testset "with empty data" begin
+        data = Float64[]
+        @test isnan(Stressify.percentile(data, 90))
+    end
+
+    @testset "with data" begin
+        data = [0.1, 0.2, 0.3, 0.4, 0.5]
+        @test Stressify.percentile(data, 90) ≈ 0.5
+        @test Stressify.percentile(data, 50) ≈ 0.3
+        @test Stressify.percentile(data, 10) ≈ 0.1
+    end
+end
+
+@testset "format_results" begin
+    results = Dict(
+        "vus" => 1,
+        "iterations" => 10,
+        "success_rate" => 90.0,
+        "error_rate" => 10.0,
+        "rps" => 5.0,
+        "tps" => 4.5,
+        "errors" => 1,
+        "min_time" => 0.1,
+        "max_time" => 0.5,
+        "mean_time" => 0.3,
+        "median_time" => 0.3,
+        "std_time" => 0.1,
+        "p90_time" => 0.4,
+        "p95_time" => 0.45,
+        "p99_time" => 0.49,
+        "all_times" => [0.1, 0.2, 0.3, 0.4, 0.5],
+    )
+
+    formatted = Stressify.format_results(results)
+    @test occursin("VUs                    :          1", formatted)
+    @test occursin("Iterações Totais       :         10", formatted)
+    @test occursin("Taxa de Sucesso (%)    :       90.0", formatted)
+    @test occursin("Taxa de Erros (%)      :       10.0", formatted)
+    @test occursin("Requisições por Segundo:        5.0", formatted)
+    @test occursin("Transações por Segundo :        4.5", formatted)
+    @test occursin("Número de Erros        :          1", formatted)
+    @test occursin("Tempo Mínimo           :        0.1", formatted)
+    @test occursin("Tempo Máximo           :        0.5", formatted)
+    @test occursin("Tempo Médio            :        0.3", formatted)
+    @test occursin("Mediana                :        0.3", formatted)
+    @test occursin("P90                    :        0.4", formatted)
+    @test occursin("P95                    :       0.45", formatted)
+    @test occursin("P99                    :       0.49", formatted)
+    @test occursin("Desvio Padrão          :        0.1", formatted)
+    @test occursin("Todos os Tempos (s)    : 0.1, 0.2, 0.3, 0.4, 0.5", formatted)
+end
+
+@testset "run_test" begin
+    @testset "with GET requests" begin
+        Stressify.options(
+            vus = 1,
+            format = "default",
+            iterations = 1,
+            duration = nothing,
+        )
+
+        requests = [Stressify.http_get("https://httpbin.org/get")]
+        results = Stressify.run_test(requests...)
+        @test results["iterations"] == 1
+        @test results["errors"] == 0
+    end
+
+    @testset "with POST requests" begin
+        Stressify.options(
+            vus = 1,
+            format = "default",
+            iterations = 1,
+            duration = nothing,
+        )
+
+        requests = [Stressify.http_post("https://httpbin.org/post", payload = "data")]
+        results = Stressify.run_test(requests...)
+        @test results["iterations"] == 1
+        @test results["errors"] == 0
+    end
+end
+
+@testset "RateLimiter and control_throughput" begin
+    @testset "RateLimiter initialization" begin
+        rate_limiter = Stressify.RateLimiter(2.0)
+        @test rate_limiter.rps == 2.0
+        @test rate_limiter.last_request_time == 0.0
+    end
+
+    @testset "control_throughput with no previous request" begin
+        rate_limiter = Stressify.RateLimiter(2.0)
+        t1 = time()
+        Stressify.control_throughput(rate_limiter)
+        @test time() - t1 < 0.1
+    end
+
+    @testset "control_throughput with previous request" begin
+        rate_limiter = Stressify.RateLimiter(2.0)
+        rate_limiter.last_request_time = time() - 0.3
+        t1 = time()
+        Stressify.control_throughput(rate_limiter)
+        @test time() - t1 ≈ 0.2 atol = 0.1
+    end
+end
+
 @testset "HTTP Methods with Rate Limiters" begin
     endpoint = "http://example.com"
 
