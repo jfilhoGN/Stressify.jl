@@ -132,6 +132,23 @@ end
         @test results["iterations"] == 1
         @test results["errors"] == 0
     end
+
+    @testset "format vus-ramping with missing ramp_duration" begin
+
+        @test_throws ErrorException Stressify.options(
+            format = "vus-ramping",
+            max_vus = 10,
+            duration = 30.0,
+        )
+    end
+
+    @testset "format vus-ramping with missing duration" begin
+        @test_throws ErrorException Stressify.options(
+            format = "vus-ramping",
+            max_vus = 10,
+            ramp_duration = 5.0,
+        )
+    end
 end
 
 @testset "RateLimiter and control_throughput" begin
@@ -224,6 +241,20 @@ end
         @test result.checks == []
         @test result.rate_limiter === rate_limiter
     end
+
+    @testset "unsupported HTTP method" begin
+        request = (
+            method = (url, headers) -> "UNSUPPORTED_METHOD",
+            url = "http://example.com",
+            payload = nothing,
+            headers = Dict(),
+            checks = [],
+            rate_limiter = nothing,
+        )
+
+        @test_throws "Método HTTP não suportado. Use: GET, POST, PUT, DELETE ou PATCH." Stressify.perform_request(request)
+    end
+
 end
 
 @testset "Rate Limiter Control" begin
