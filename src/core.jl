@@ -146,6 +146,7 @@ function parse_stressify_args()
     args["influxdb-token"] = get(ENV, "INFLUXDB_TOKEN", "")
     return args
 end
+
 const STRESSIFY_ARGS = parse_stressify_args()
 
 """
@@ -578,6 +579,6 @@ function spawn_vu_task(vu_id, start_time, duration, iterations, requests, local_
     end
 end
 
-export options, http_get, http_post, http_put, http_patch, http_delete, run_test, Check, format_results, compute_statistics, RateLimiter, control_throughput, perform_request, percentile, check, CHECK_RESULTS
+export options, http_get, http_post, http_put, http_patch, http_delete, run_test, Check, format_results, compute_statistics, RateLimiter, control_throughput, perform_request, percentile, check, CHECK_RESULTS, STRESSIFY_ARGS, parse_stressify_args
 
 end
