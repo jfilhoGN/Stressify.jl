@@ -4,6 +4,8 @@ using HTTP
 using Statistics
 using Base.Threads
 using Printf
+using ArgParse
+using JSON
 
 # Armazena as opções globais
 const GLOBAL_OPTIONS = Dict{Symbol, Any}()
@@ -18,6 +20,136 @@ const CHECK_RESULTS = Ref(Vector{String}())
 const CHECK_LOCK = ReentrantLock()
 
 """
+	send_to_influx(measurement::String, fields::Dict{String, Any}, tags::Dict{String, String}=Dict())
+
+	Envia dados para o InfluxDB.
+"""	
+function send_to_influx(measurement::String, fields::Dict{String, Any}, tags::Dict{String, String}=Dict())
+    if STRESSIFY_ARGS["output"] != "influxdb"
+        return
+    end
+
+    influxdb_url = STRESSIFY_ARGS["influxdb-url"]
+    influxdb_bucket = STRESSIFY_ARGS["influxdb-bucket"]
+    influxdb_org = STRESSIFY_ARGS["influxdb-org"]
+    influxdb_token = STRESSIFY_ARGS["influxdb-token"]
+
+    if isempty(influxdb_token)
+        error("Token do InfluxDB não fornecido. Use --influxdb-token para especificar um token válido.")
+    end
+
+    timestamp = Int64(round(time() * 1e9)) 
+
+    tags_str = join(["$k=$v" for (k,v) in tags], ",")
+    fields_str = join(["$k=$v" for (k,v) in fields], ",")
+    line = "$measurement,$tags_str $fields_str $timestamp"
+
+    headers = Dict(
+        "Authorization" => "Token $influxdb_token",
+        "Content-Type"  => "text/plain; charset=utf-8"
+    )
+
+    try
+        response = HTTP.post("$influxdb_url/api/v2/write?org=$influxdb_org&bucket=$influxdb_bucket&precision=ns",
+                            headers, line)
+        if response.status != 204
+            println("Erro ao enviar dados para o InfluxDB. Status: ", response.status)
+            println("Resposta: ", String(response.body))
+        end
+    catch e
+        println("Erro ao enviar dados para o InfluxDB: ", e)
+    end
+end
+
+"""
+	report_metrics(latency::Float64, error_occurred::Bool)
+
+	Envia métricas de desempenho para o InfluxDB.
+"""
+function report_metrics(latency, error_occurred)
+    if STRESSIFY_ARGS["output"] != "influxdb"
+        return
+    end
+
+    send_to_influx("performance",
+        Dict(
+            "latency_ms" => latency * 1000,
+            "error" => error_occurred ? 1 : 0
+        ),
+        Dict(
+            "test" => "stressify_test"
+        )
+    )
+end
+
+"""
+	parse_cli_args!()
+
+	Parses the command line arguments for the stressify script.
+"""
+function parse_cli_args!()
+    for arg in ARGS
+        if occursin("--output=", arg)
+            output_value = split(arg, "=")[2]
+            println("🚀 Argumento capturado: output=$output_value")
+            STRESSIFY_ARGS["output"] = output_value 
+        end
+    end
+end
+
+"""
+	save_results_to_json(results, filename)
+
+	Salva os resultados em um arquivo JSON.
+
+	- `results`: Dicionário de resultados.
+	- `filename`: Nome do arquivo JSON.
+"""
+function save_results_to_json(results, filename)
+    try
+        open(filename, "w") do f
+            JSON.print(f, results, 2)
+        end
+        println("Arquivo JSON salvo em: ", filename)
+    catch e
+        println("Erro ao salvar JSON: ", e)
+    end
+end
+
+"""
+    parse_stressify_args() 
+
+Parses the command line arguments for the stressify script.
+"""
+function parse_stressify_args()
+    s = ArgParseSettings()
+    @add_arg_table! s begin
+        "--output"
+            help = "Formato de saída (grafana, json, influxdb, default)"
+            arg_type = String
+            default = "default"
+        "--influxdb-url"
+            help = "URL do InfluxDB (ex: http://localhost:8086)"
+            arg_type = String
+            default = "http://localhost:8086"
+        "--influxdb-bucket"
+            help = "Nome do bucket no InfluxDB"
+            arg_type = String
+            default = "stressify"
+        "--influxdb-org"
+            help = "Organização no InfluxDB"
+            arg_type = String
+            default = "Stressify"
+    end
+    args = parse_args(s; as_symbols=false)
+    
+    args["influxdb-token"] = get(ENV, "INFLUXDB_TOKEN", "")
+    return args
+end
+
+const STRESSIFY_ARGS = parse_stressify_args()
+
+"""
 	options(; vus::Int=1, format::String="default", ramp_duration::Union{Float64, Nothing}=nothing,
 			  max_vus::Union{Int, Nothing}=nothing, iterations::Union{Int, Nothing}=nothing, 
 			  duration::Union{Float64, Nothing}=nothing)
@@ -25,19 +157,19 @@ const CHECK_LOCK = ReentrantLock()
 Configura opções globais para os testes de performance.
 """
 function options(; vus::Int = 1, format::String = "default", max_vus::Union{Int, Nothing} = nothing,
-	ramp_duration::Union{Float64, Nothing} = nothing, iterations::Union{Int, Nothing} = nothing,
-	duration::Union{Float64, Nothing} = nothing, noDebug::Bool = false)
-	GLOBAL_OPTIONS[:vus] = vus
-	GLOBAL_OPTIONS[:format] = format
-	GLOBAL_OPTIONS[:max_vus] = max_vus
-	GLOBAL_OPTIONS[:ramp_duration] = ramp_duration
-	GLOBAL_OPTIONS[:iterations] = iterations
-	GLOBAL_OPTIONS[:duration] = duration
-	GLOBAL_OPTIONS[:noDebug] = noDebug
+    ramp_duration::Union{Float64, Nothing} = nothing, iterations::Union{Int, Nothing} = nothing,
+    duration::Union{Float64, Nothing} = nothing, noDebug::Bool = false)
+    GLOBAL_OPTIONS[:vus] = vus
+    GLOBAL_OPTIONS[:format] = format
+    GLOBAL_OPTIONS[:max_vus] = max_vus
+    GLOBAL_OPTIONS[:ramp_duration] = ramp_duration
+    GLOBAL_OPTIONS[:iterations] = iterations
+    GLOBAL_OPTIONS[:duration] = duration
+    GLOBAL_OPTIONS[:noDebug] = noDebug
 
-	if format == "vus-ramping" && (max_vus === nothing || duration === nothing || ramp_duration === nothing)
-		error("Para o formato 'vus-ramping', você deve especificar 'max_vus', 'ramp_duration' e 'duration'.")
-	end
+    if format == "vus-ramping" && (max_vus === nothing || duration === nothing || ramp_duration === nothing)
+        error("Para o formato 'vus-ramping', você deve especificar 'max_vus', 'ramp_duration' e 'duration'.")
+    end
 end
 
 """
@@ -239,12 +371,15 @@ end
 Executa os testes de performance com suporte ao formato `vus-ramping`, incluindo `ramp_duration`.
 """
 function run_test(requests::Vararg{NamedTuple}; rate_limiter = nothing)
+    parse_cli_args!()
 	vus = get(GLOBAL_OPTIONS, :vus, 1)
 	format = get(GLOBAL_OPTIONS, :format, "default")
 	max_vus = get(GLOBAL_OPTIONS, :max_vus, nothing)
 	ramp_duration = get(GLOBAL_OPTIONS, :ramp_duration, 0.0)
 	iterations = get(GLOBAL_OPTIONS, :iterations, nothing)
 	duration = get(GLOBAL_OPTIONS, :duration, nothing)
+
+    output_mode = STRESSIFY_ARGS["output"]
 
 	if iterations === nothing && duration === nothing
 		error("Você deve especificar 'iterations' ou 'duration' nas opções globais.")
@@ -345,10 +480,31 @@ function run_test(requests::Vararg{NamedTuple}; rate_limiter = nothing)
 	total_duration = time() - start_time
 
 	results = compute_statistics(all_times, total_errors, total_requests, total_duration, active_vus[])
-	println(format_results(results))
-	println("\n---------- Resultados dos Checks ----------")
-	println(join(CHECK_RESULTS[], "\n"))
 
+    if output_mode == "influxdb"
+        # Remove o campo `all_times` do dicionário de resultados
+        filtered_results = filter(pair -> pair.first != "all_times", results)
+
+        # Converte os valores do dicionário para Any
+        influx_fields = Dict{String, Any}()
+        for (k, v) in filtered_results
+            influx_fields[k] = v
+        end
+
+        send_to_influx("stressify_summary", influx_fields, Dict(
+            "test" => "stressify_test"
+        ))
+    end
+
+    if output_mode == "grafana"
+        save_results_to_json(results, "stressify_grafana.json")
+        println("Resultados salvos em 'stressify_grafana.json'")
+    else
+        println(format_results(results))
+	    println("\n---------- Resultados dos Checks ----------")
+	    println(join(CHECK_RESULTS[], "\n"))
+    end
+	
 	return results
 end
 
@@ -423,6 +579,6 @@ function spawn_vu_task(vu_id, start_time, duration, iterations, requests, local_
     end
 end
 
-export options, http_get, http_post, http_put, http_patch, http_delete, run_test, Check, format_results, compute_statistics, RateLimiter, control_throughput, perform_request, percentile, check, CHECK_RESULTS
+export options, http_get, http_post, http_put, http_patch, http_delete, run_test, Check, format_results, compute_statistics, RateLimiter, control_throughput, perform_request, percentile, check, CHECK_RESULTS, STRESSIFY_ARGS, parse_stressify_args
 
 end

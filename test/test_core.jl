@@ -5,6 +5,18 @@ using Stressify
 using Mocking
 import .Core
 
+
+@testset "default args" begin
+    ARGS = []
+
+    args = Stressify.parse_stressify_args()
+
+    @test args["output"] == "default"
+    @test args["influxdb-url"] == "http://localhost:8086"
+    @test args["influxdb-bucket"] == "stressify"
+    @test args["influxdb-org"] == "Stressify"
+end
+
 @testset "compute_statistics" begin
     @testset "with empty data" begin
         all_times = Float64[]
